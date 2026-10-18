@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CityAurora, CityHouses, CityIndustry, CitySky, CitySnow } from '../components/CityParade'
+import PlaceDialog from '../components/PlaceDialog'
 import { districts } from '../data/districts'
+import { places, type Place } from '../data/places'
 
 const directions = [
   {
@@ -32,6 +34,8 @@ const districtNotes: Record<string, string> = {
 }
 
 export default function HomePage() {
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const closePlace = useCallback(() => setSelectedPlace(null), [])
   const sceneRef = useRef<HTMLElement>(null)
   const skyRef = useRef<HTMLDivElement>(null)
   const auroraRef = useRef<HTMLDivElement>(null)
@@ -125,6 +129,27 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="home-section">
+        <div className="home-section-head">
+          <h2>Места</h2>
+          <p>Нажмите карточку, чтобы открыть фото</p>
+        </div>
+        <div className="ribbon" tabIndex={0}>
+          {places.map((place) => (
+            <button
+              key={place.id}
+              type="button"
+              className="place-card"
+              onClick={() => setSelectedPlace(place)}
+            >
+              <img src={place.image} alt="" />
+              <span>{place.district}</span>
+              <h3>{place.title}</h3>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="home-section home-section--last">
         <div className="home-section-head">
           <h2>Районы</h2>
@@ -140,6 +165,8 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {selectedPlace ? <PlaceDialog place={selectedPlace} onClose={closePlace} /> : null}
     </main>
   )
 }
