@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { Container, Nav, Navbar } from 'react-bootstrap'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 
 export default function AppNavbar() {
   const navigate = useNavigate()
   const location = useLocation()
+  const auth = useAuth()
   const [expanded, setExpanded] = useState(false)
+
+  const leave = async () => {
+    setExpanded(false)
+    await auth.logout()
+    navigate('/')
+  }
 
   const go = (path: string) => {
     setExpanded(false)
@@ -41,6 +49,37 @@ export default function AppNavbar() {
             >
               Карта
             </button>
+            {auth.account ? (
+              <>
+                <button
+                  type="button"
+                  className={`gis-nav-btn${location.pathname === '/account' ? ' active' : ''}`}
+                  onClick={() => go('/account')}
+                >
+                  {auth.account.full_name}
+                </button>
+                <button type="button" className="gis-nav-btn" onClick={() => void leave()}>
+                  Выйти
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={`gis-nav-btn${location.pathname === '/login' ? ' active' : ''}`}
+                  onClick={() => go('/login')}
+                >
+                  Войти
+                </button>
+                <button
+                  type="button"
+                  className={`gis-nav-btn${location.pathname === '/register' ? ' active' : ''}`}
+                  onClick={() => go('/register')}
+                >
+                  Регистрация
+                </button>
+              </>
+            )}
           </Nav>
         </Navbar.Collapse>
       </Container>
