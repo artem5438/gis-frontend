@@ -489,9 +489,67 @@ body {
 }
 
 .map-page {
-  position: relative;
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  background: #f4f7fb;
+}
+
+.map-page--full {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  padding: 12px;
+}
+
+.map-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.map-heading h1 {
+  margin: 0;
+  color: #14315c;
+  font-size: 28px;
+}
+
+.map-heading p {
+  margin: 4px 0 0;
+  color: #4c6278;
+}
+
+.map-expand {
+  border: 0;
+  border-radius: 999px;
+  background: #14315c;
+  color: #fff;
+  padding: 10px 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.map-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 12px;
+}
+
+.map-page--full .map-layout {
+  grid-template-columns: 1fr;
+}
+
+.map-frame {
+  min-height: 0;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(20, 49, 92, 0.08);
   background: #d5e4ef;
 }
 
@@ -501,23 +559,37 @@ body {
   background: #d5e4ef;
 }
 
-.map-note {
-  position: absolute;
-  z-index: 500;
-  left: 16px;
-  bottom: 16px;
-  max-width: 320px;
-  background: rgba(247, 251, 255, 0.94);
+.map-districts {
+  background: #fff;
   border: 1px solid rgba(20, 49, 92, 0.08);
-  border-radius: 16px;
-  padding: 12px 14px;
-  box-shadow: 0 10px 30px rgba(16, 32, 51, 0.08);
+  border-radius: 22px;
+  padding: 14px;
+  overflow: auto;
 }
 
-.map-note p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.4;
+.map-districts h2 {
+  margin: 0 0 10px;
+  color: #14315c;
+  font-size: 16px;
+}
+
+.map-districts button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  border: 1px solid rgba(20, 49, 92, 0.12);
+  border-radius: 12px;
+  background: #f7fbff;
+  color: #14315c;
+  padding: 10px 12px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.map-districts button.active {
+  background: #1f8a62;
+  border-color: #1f8a62;
+  color: #fff;
 }
 
 .leaflet-tooltip {
@@ -554,6 +626,24 @@ body {
   .home-section-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .app-shell:has(.map-page) {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .map-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .map-frame {
+    min-height: 300px;
   }
 }
 

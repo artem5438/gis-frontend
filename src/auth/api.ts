@@ -96,6 +96,22 @@ export async function reviewQueue(): Promise<ReviewQueue> {
   return (await response.json()) as ReviewQueue
 }
 
+export type ParcelLayer = {
+  type: 'FeatureCollection'
+  features: Array<{
+    type: 'Feature'
+    id: number
+    geometry: GeoJSON.Geometry
+    properties: { cadastral_number: string }
+  }>
+}
+
+export async function parcelLayer(): Promise<ParcelLayer> {
+  const response = await send('/api/parcels')
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as ParcelLayer
+}
+
 export async function decideApplication(id: number, decision: 'approved' | 'rejected', role?: string): Promise<void> {
   const response = await send(`/api/applications/${id}/decision`, {
     method: 'POST',
