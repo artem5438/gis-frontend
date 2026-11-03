@@ -51,6 +51,15 @@ export default function AppNavbar() {
             </button>
             {auth.account ? (
               <>
+                {auth.account.role?.code === 'moderator' ? (
+                  <button
+                    type="button"
+                    className={`gis-nav-btn${location.pathname === '/review' ? ' active' : ''}`}
+                    onClick={() => go('/review')}
+                  >
+                    Заявки
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className={`gis-nav-btn${location.pathname === '/account' ? ' active' : ''}`}

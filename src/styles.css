@@ -556,3 +556,46 @@ body {
     align-items: flex-start;
   }
 }
+
+.pending-notice {
+  background: #fff4d6;
+  color: #5c4308;
+  border-bottom: 1px solid #e6c56e;
+  padding: 10px 20px;
+  text-align: center;
+}
+
+.role-request {
+  margin-top: 18px;
+}
+
+.review-page {
+  width: min(760px, calc(100% - 32px));
+  margin: 28px auto 48px;
+}
+
+.review-page h1 {
+  color: #14315c;
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.review-card {
+  background: #fff;
+  border: 1px solid rgba(20, 49, 92, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.review-person {
+  margin: 0 0 8px;
+  color: #1d4e89;
+  font-weight: 700;
+}
+
+.review-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}

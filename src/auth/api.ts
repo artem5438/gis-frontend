@@ -6,6 +6,21 @@ export type Account = {
   role: { code: string; name: string } | null
 }
 
+export type RoleRequest = {
+  id: number
+  body: string
+  decision: string
+  created_at: string
+  full_name?: string
+  login?: string
+  assigned_role: { code: string; name: string } | null
+}
+
+export type ReviewQueue = {
+  applications: RoleRequest[]
+  roles: { code: string; name: string }[]
+}
+
 type ErrorBody = { error?: string }
 
 async function send(path: string, init?: RequestInit): Promise<Response> {
@@ -56,6 +71,37 @@ export async function currentAccount(): Promise<Account | null> {
   if (response.status === 401) return null
   if (!response.ok) throw new Error(await readError(response))
   return (await response.json()) as Account
+}
+
+export async function myApplication(): Promise<RoleRequest | null> {
+  const response = await send('/api/applications/mine')
+  if (response.status === 401) return null
+  if (!response.ok) throw new Error(await readError(response))
+  const body = (await response.json()) as { application: RoleRequest | null }
+  return body.application
+}
+
+export async function sendApplication(text: string): Promise<RoleRequest> {
+  const response = await send('/api/applications', {
+    method: 'POST',
+    body: JSON.stringify({ body: text }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as RoleRequest
+}
+
+export async function reviewQueue(): Promise<ReviewQueue> {
+  const response = await send('/api/applications')
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as ReviewQueue
+}
+
+export async function decideApplication(id: number, decision: 'approved' | 'rejected', role?: string): Promise<void> {
+  const response = await send(`/api/applications/${id}/decision`, {
+    method: 'POST',
+    body: JSON.stringify({ decision, role: role ?? '' }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
 }
 
 export function statusLabel(status: string): string {
