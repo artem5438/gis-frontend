@@ -537,7 +537,7 @@ body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 12px;
 }
 
@@ -546,6 +546,7 @@ body {
 }
 
 .map-frame {
+  position: relative;
   min-height: 0;
   border-radius: 22px;
   overflow: hidden;
@@ -557,6 +558,63 @@ body {
   height: 100%;
   width: 100%;
   background: #d5e4ef;
+}
+
+.map-canvas--pick.leaflet-container {
+  cursor: pointer;
+}
+
+.map-card h2 {
+  margin: 0 0 10px;
+  color: #14315c;
+  font-size: 16px;
+}
+
+.map-card {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(20, 49, 92, 0.08);
+}
+
+.map-card--float {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 500;
+  width: min(320px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid rgba(20, 49, 92, 0.08);
+  border-radius: 22px;
+}
+
+.map-card-note {
+  margin: 0;
+  color: #4c6278;
+  font-size: 14px;
+}
+
+.map-card-fields {
+  margin: 0;
+}
+
+.map-card-fields div + div {
+  margin-top: 8px;
+}
+
+.map-card-fields dt {
+  color: #4c6278;
+  font-size: 12px;
+}
+
+.map-card-fields dd {
+  margin: 2px 0 0;
+  color: #102033;
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .map-districts {

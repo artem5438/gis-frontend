@@ -112,6 +112,35 @@ export async function parcelLayer(): Promise<ParcelLayer> {
   return (await response.json()) as ParcelLayer
 }
 
+export type ParcelCard = {
+  id: number
+  cadastral_number: string
+  object_kind: string
+  parcel_kind: string
+  assigned_on: string
+  cadastral_quarter: string
+  address: string
+  area_ha: number | null
+  area_m2: number | null
+  area_name: string
+  status: string
+  land_category: string
+  permitted_use: string
+  ownership_form: string
+  cadastral_cost: number | null
+  cost_index: number | null
+}
+
+export async function parcelAtPoint(lat: number, lng: number): Promise<ParcelCard | null> {
+  const response = await send('/api/parcels/at-point', {
+    method: 'POST',
+    body: JSON.stringify({ lat, lng }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  const body = (await response.json()) as { found: boolean; parcel?: ParcelCard }
+  return body.found ? (body.parcel ?? null) : null
+}
+
 export async function decideApplication(id: number, decision: 'approved' | 'rejected', role?: string): Promise<void> {
   const response = await send(`/api/applications/${id}/decision`, {
     method: 'POST',
