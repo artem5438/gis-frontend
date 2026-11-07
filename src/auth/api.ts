@@ -102,7 +102,7 @@ export type ParcelLayer = {
     type: 'Feature'
     id: number
     geometry: GeoJSON.Geometry
-    properties: { cadastral_number: string }
+    properties: { cadastral_number: string; land_category: string }
   }>
 }
 
