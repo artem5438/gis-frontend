@@ -120,6 +120,76 @@ body {
   font-size: 18px;
 }
 
+.profile-card {
+  max-width: 720px;
+}
+
+.profile-rows {
+  margin-top: 8px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(20, 49, 92, 0.08);
+}
+
+.profile-label {
+  color: #14315c;
+  font-weight: 700;
+}
+
+.profile-value {
+  margin-top: 4px;
+  color: #102033;
+}
+
+.profile-row p {
+  margin: 4px 0 0;
+  color: #4c6278;
+  font-size: 13px;
+}
+
+.profile-save {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.profile-save .auth-submit {
+  background: #14315c;
+  border-color: #14315c;
+}
+
+.source-switch {
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border: 0;
+  border-radius: 13px;
+  background: #c5ced8;
+  flex: none;
+}
+
+.source-switch span {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.source-switch.on {
+  background: #1f8a62;
+}
+
+.source-switch.on span {
+  transform: translateX(18px);
+}
+
 .city-scroll {
   height: 210vh;
   position: relative;
@@ -616,6 +686,44 @@ body {
   flex-direction: row;
   align-items: center;
   min-width: 0;
+}
+
+.map-filter {
+  width: min(320px, 70vw);
+  max-height: min(420px, 70vh);
+  overflow: auto;
+}
+
+.map-filter label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #14315c;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.map-filter i {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border: 2px solid;
+  border-radius: 3px;
+  flex: none;
+}
+
+.map-catalog {
+  width: 240px;
+}
+
+.map-catalog p {
+  margin: 0;
+  color: #4c6278;
+  font-size: 13px;
+}
+
+.map-catalog button:disabled {
+  opacity: 0.6;
 }
 
 .map-pop .map-icon {

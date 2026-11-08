@@ -2,14 +2,42 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Map as LeafletMap } from 'leaflet'
 import { AttributionControl, Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import type { LatLngBoundsExpression, PathOptions } from 'leaflet'
-import { parcelAtPoint, parcelLayer, type ParcelCard, type ParcelLayer } from '../auth/api'
+import { catalogWalk, parcelAtPoint, parcelLayer, parcelStoredAtPoint, startCatalogWalk, type ParcelCard, type ParcelLayer, type WalkStatus } from '../auth/api'
 import { useAuth } from '../auth/AuthContext'
 import { districts, type District } from '../data/districts'
-import { categoryPaint, landLegend } from '../map/categories'
+import { categoryPaint, categoryTitle, landLegend } from '../map/categories'
 import { formatArea, formatDegrees, formatMeters, metersBetween, pathLength, ringArea, type LatLng } from '../map/measure'
 import 'leaflet/dist/leaflet.css'
 
 const bounds = districts.map((district) => [district.lat, district.lon]) as LatLngBoundsExpression
+const viewStorageKey = 'norilsk-map-view'
+
+type MapView = { lat: number; lng: number; zoom: number }
+
+function readMapView(): MapView | null {
+  try {
+    const raw = sessionStorage.getItem(viewStorageKey)
+    if (!raw) return null
+    const view = JSON.parse(raw) as Partial<MapView>
+    if (typeof view.lat !== 'number' || typeof view.lng !== 'number' || typeof view.zoom !== 'number') return null
+    if (!Number.isFinite(view.lat) || !Number.isFinite(view.lng) || !Number.isFinite(view.zoom)) return null
+    if (view.lat < -90 || view.lat > 90 || view.lng < -180 || view.lng > 180) return null
+    if (view.zoom < 0 || view.zoom > 22) return null
+    return { lat: view.lat, lng: view.lng, zoom: view.zoom }
+  } catch {
+    return null
+  }
+}
+
+function writeMapView(map: LeafletMap) {
+  try {
+    const center = map.getCenter()
+    const view: MapView = { lat: center.lat, lng: center.lng, zoom: map.getZoom() }
+    sessionStorage.setItem(viewStorageKey, JSON.stringify(view))
+  } catch {
+    // Вкладка не приняла запись. Карта всё равно остаётся на месте.
+  }
+}
 
 const bases = {
   streets: {
@@ -75,6 +103,22 @@ function FitDistricts() {
 
   useEffect(() => {
     map.fitBounds(bounds, { padding: [48, 48], maxZoom: 12 })
+    writeMapView(map)
+  }, [map])
+
+  return null
+}
+
+function RememberView() {
+  const map = useMap()
+
+  useEffect(() => {
+    const save = () => writeMapView(map)
+    map.on('moveend', save)
+    return () => {
+      save()
+      map.off('moveend', save)
+    }
   }, [map])
 
   return null
@@ -232,7 +276,10 @@ function parcelStyle(feature?: GeoJSON.Feature): PathOptions {
 
 export default function MapPage() {
   const auth = useAuth()
+  const [savedView] = useState(readMapView)
   const verified = auth.account?.verification_status === 'verified'
+  const fromDatabase = auth.account?.from_database !== false
+  const moderator = auth.account?.role?.code === 'moderator' && !fromDatabase
   const [full, setFull] = useState(false)
   const mapRef = useRef<LeafletMap | null>(null)
   const [focus, setFocus] = useState<District | null>(null)
@@ -246,7 +293,10 @@ export default function MapPage() {
   const [tool, setTool] = useState<Tool>(restingTool(verified))
   const [lineDone, setLineDone] = useState(false)
   const [legendOpen, setLegendOpen] = useState(false)
-  const [openPanel, setOpenPanel] = useState<'base' | 'search' | 'districts' | 'measure' | null>(null)
+  const [openPanel, setOpenPanel] = useState<'base' | 'search' | 'districts' | 'measure' | 'filter' | 'catalog' | null>(null)
+  const [hiddenCategories, setHiddenCategories] = useState<string[]>([])
+  const [walk, setWalk] = useState<WalkStatus | null>(null)
+  const [walkError, setWalkError] = useState('')
   const [cardOpen, setCardOpen] = useState(false)
   const [latText, setLatText] = useState('')
   const [lngText, setLngText] = useState('')
@@ -296,16 +346,58 @@ export default function MapPage() {
     }
   }, [auth.ready, verified])
 
+  useEffect(() => {
+    if (!auth.ready || !moderator) return
+    let alive = true
+    catalogWalk()
+      .then((next) => {
+        if (alive) setWalk(next)
+      })
+      .catch((err: unknown) => {
+        if (alive) setWalkError(err instanceof Error ? err.message : 'Не удалось прочитать обход')
+      })
+    return () => {
+      alive = false
+    }
+  }, [auth.ready, moderator])
+
+  useEffect(() => {
+    if (!moderator || walk?.state !== 'running') return
+    let alive = true
+    const timer = window.setInterval(() => {
+      catalogWalk()
+        .then(async (next) => {
+          if (!alive) return
+          const layerNext = await parcelLayer()
+          if (!alive) return
+          setLayer(layerNext)
+          setLayerKey((current) => current + 1)
+          setWalk(next)
+          setWalkError('')
+        })
+        .catch((err: unknown) => {
+          if (!alive) return
+          setWalkError(err instanceof Error ? err.message : 'Не удалось прочитать обход')
+        })
+    }, 3000)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [moderator, walk?.state])
+
   function pickParcel(lat: number, lng: number) {
     if (card.kind === 'loading') return
     setCard({ kind: 'loading' })
-    parcelAtPoint(lat, lng)
+    const lookup = fromDatabase ? parcelStoredAtPoint : parcelAtPoint
+    lookup(lat, lng)
       .then(async (parcel) => {
         if (!parcel) {
           setCard({ kind: 'empty' })
           return
         }
         setCard({ kind: 'parcel', parcel })
+        if (fromDatabase) return
         try {
           const next = await parcelLayer()
           setLayer(next)
@@ -353,8 +445,21 @@ export default function MapPage() {
     setTool(next)
   }
 
-  function togglePanel(name: 'base' | 'search' | 'districts' | 'measure') {
+  function togglePanel(name: 'base' | 'search' | 'districts' | 'measure' | 'filter' | 'catalog') {
     setOpenPanel((current) => (current === name ? null : name))
+  }
+
+  function toggleCategory(title: string) {
+    setHiddenCategories((current) => (current.includes(title) ? current.filter((item) => item !== title) : [...current, title]))
+  }
+
+  function beginWalk() {
+    setWalkError('')
+    startCatalogWalk()
+      .then((next) => setWalk({ ...next, state: 'running' }))
+      .catch((err: unknown) => {
+        setWalkError(err instanceof Error ? err.message : 'Не удалось запустить обход')
+      })
   }
 
   function finishMeasure() {
@@ -472,6 +577,19 @@ export default function MapPage() {
     measureText = `Площадь: ${formatArea(polyArea)}. Периметр: ${formatMeters(polyPerimeter)}.`
   }
 
+  const visibleLayer =
+    layer == null
+      ? null
+      : {
+          ...layer,
+          features: layer.features.filter((feature) => !hiddenCategories.includes(categoryTitle(feature.properties.land_category))),
+        }
+  const walkText = walkError || (walk?.state === 'running'
+    ? `Идёт обход. Записано ${walk.saved}. Осталось прямоугольников ${walk.left}.`
+    : walk?.state === 'done'
+      ? walk.message || `Обход закончен. Записано ${walk.saved}.`
+      : 'Обход ещё не запускали.')
+
   const caption = !auth.ready
     ? 'Открываем карту.'
     : verified
@@ -492,8 +610,8 @@ export default function MapPage() {
       <div className="map-layout">
         <div className="map-frame">
           <MapContainer
-            center={[69.38, 88.07]}
-            zoom={11}
+            center={savedView ? [savedView.lat, savedView.lng] : [69.38, 88.07]}
+            zoom={savedView ? savedView.zoom : 11}
             zoomControl={false}
             scrollWheelZoom
             attributionControl={false}
@@ -502,13 +620,14 @@ export default function MapPage() {
             <AttributionControl prefix='<a href="https://leafletjs.com" title="A JavaScript library for interactive maps">Leaflet</a>' />
             <TileLayer key={base} attribution={baseLayer.attribution} url={baseLayer.url} />
             <BindMap mapRef={mapRef} />
-            <FitDistricts />
+            {savedView ? null : <FitDistricts />}
+            <RememberView />
             <ResizeMap full={full} />
             <FlyTo district={focus} focusToken={focusToken} jump={jump} />
             <MeasureZoom active={tool === 'line' || tool === 'polygon'} />
             <MapClicks onClick={onMapClick} onMove={onMapMove} onDouble={onMapDouble} />
-            {layer && layer.features.length > 0 ? (
-              <GeoJSON key={layerKey} data={layer} style={parcelStyle} />
+            {visibleLayer && visibleLayer.features.length > 0 ? (
+              <GeoJSON key={`${layerKey}:${hiddenCategories.join('|')}`} data={visibleLayer} style={parcelStyle} />
             ) : null}
             {districts.map((district) => (
               <CircleMarker
@@ -625,6 +744,43 @@ export default function MapPage() {
                 </div>
               ) : null}
             </div>
+            {verified ? (
+              <div className="map-dock-item">
+                <button type="button" className={openPanel === 'filter' ? 'map-icon active' : 'map-icon'} data-label="Фильтр категорий" aria-label="Фильтр категорий" onClick={() => togglePanel('filter')}>
+                  <Icon>
+                    <path {...iconProps} d="M4 5h16l-6 7v6l-4 2v-8L4 5Z" />
+                  </Icon>
+                </button>
+                {openPanel === 'filter' ? (
+                  <div className="map-pop map-filter">
+                    {landLegend.map((item) => (
+                      <label key={item.title}>
+                        <input type="checkbox" checked={!hiddenCategories.includes(item.title)} onChange={() => toggleCategory(item.title)} />
+                        <i style={{ background: item.fill, borderColor: item.stroke }} />
+                        {item.title}
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {moderator ? (
+              <div className="map-dock-item">
+                <button type="button" className={openPanel === 'catalog' || walk?.state === 'running' ? 'map-icon active' : 'map-icon'} data-label="Собрать каталог" aria-label="Собрать каталог" onClick={() => togglePanel('catalog')}>
+                  <Icon>
+                    <path {...iconProps} d="M12 4v10M8 10l4 4 4-4M5 19h14" />
+                  </Icon>
+                </button>
+                {openPanel === 'catalog' ? (
+                  <div className="map-pop map-catalog">
+                    <button type="button" onClick={beginWalk} disabled={walk?.state === 'running'}>
+                      {walk?.state === 'running' ? 'Обход идёт' : 'Собрать каталог'}
+                    </button>
+                    <p>{walkText}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className="map-dock-item">
               <button
                 type="button"

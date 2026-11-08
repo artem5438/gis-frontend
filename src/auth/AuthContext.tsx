@@ -6,6 +6,7 @@ import {
   logoutAccount,
   myApplication,
   registerAccount,
+  saveParcelSource,
   sendApplication,
   type Account,
   type RoleRequest,
@@ -19,6 +20,7 @@ type AuthValue = {
   login: (login: string, password: string) => Promise<void>
   logout: () => Promise<void>
   apply: (text: string) => Promise<void>
+  saveSource: (fromDatabase: boolean) => Promise<void>
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
@@ -70,6 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     async apply(text) {
       setRequest(await sendApplication(text))
+    },
+    async saveSource(fromDatabase) {
+      setAccount(await saveParcelSource(fromDatabase))
     },
   }
 

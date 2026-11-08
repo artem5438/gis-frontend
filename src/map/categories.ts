@@ -9,7 +9,11 @@ export const landLegend = [
   { title: 'Категория не установлена', fill: '#d0d5db', stroke: '#6b7280' },
 ] as const
 
-export function categoryPaint(value: string): { fill: string; stroke: string } {
+export function categoryTitle(value: string): string {
+  return categoryPaint(value).title
+}
+
+export function categoryPaint(value: string): { title: string; fill: string; stroke: string } {
   const text = value.toLowerCase().replaceAll('ё', 'е')
   if (text.includes('сельскохозяй')) return landLegend[0]
   if (text.includes('населен')) return landLegend[1]

@@ -3,6 +3,7 @@ export type Account = {
   login: string
   full_name: string
   verification_status: string
+  from_database: boolean
   role: { code: string; name: string } | null
 }
 
@@ -64,6 +65,15 @@ export async function loginAccount(login: string, password: string): Promise<Acc
 
 export async function logoutAccount(): Promise<void> {
   await send('/api/auth/logout', { method: 'POST' })
+}
+
+export async function saveParcelSource(fromDatabase: boolean): Promise<Account> {
+  const response = await send('/api/auth/source', {
+    method: 'POST',
+    body: JSON.stringify({ from_database: fromDatabase }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as Account
 }
 
 export async function currentAccount(): Promise<Account | null> {
@@ -129,6 +139,35 @@ export type ParcelCard = {
   ownership_form: string
   cadastral_cost: number | null
   cost_index: number | null
+}
+
+export type WalkStatus = {
+  state: 'idle' | 'running' | 'done'
+  saved: number
+  left: number
+  message: string
+}
+
+export async function catalogWalk(): Promise<WalkStatus> {
+  const response = await send('/api/catalog/walk')
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as WalkStatus
+}
+
+export async function startCatalogWalk(): Promise<WalkStatus> {
+  const response = await send('/api/catalog/walk', { method: 'POST' })
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as WalkStatus
+}
+
+export async function parcelStoredAtPoint(lat: number, lng: number): Promise<ParcelCard | null> {
+  const response = await send('/api/parcels/stored', {
+    method: 'POST',
+    body: JSON.stringify({ lat, lng }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  const body = (await response.json()) as { found: boolean; parcel?: ParcelCard }
+  return body.found ? (body.parcel ?? null) : null
 }
 
 export async function parcelAtPoint(lat: number, lng: number): Promise<ParcelCard | null> {
