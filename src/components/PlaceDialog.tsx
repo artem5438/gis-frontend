@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Place } from '../data/places'
 
 type PlaceDialogProps = {
@@ -6,9 +6,28 @@ type PlaceDialogProps = {
   onClose: () => void
 }
 
+const closeMs = 360
+
 export default function PlaceDialog({ place, onClose }: PlaceDialogProps) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const closing = useRef(false)
+  const timer = useRef(0)
+  const [out, setOut] = useState(false)
   const titleId = `place-${place.id}-title`
+
+  const requestClose = useCallback(() => {
+    if (closing.current) return
+    closing.current = true
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduced) {
+      onClose()
+      return
+    }
+    setOut(true)
+    timer.current = window.setTimeout(onClose, closeMs)
+  }, [onClose])
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -16,7 +35,7 @@ export default function PlaceDialog({ place, onClose }: PlaceDialogProps) {
     closeRef.current?.focus()
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') requestClose()
     }
 
     window.addEventListener('keydown', onKey)
@@ -24,12 +43,12 @@ export default function PlaceDialog({ place, onClose }: PlaceDialogProps) {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', onKey)
     }
-  }, [onClose])
+  }, [requestClose])
 
   return (
-    <div className="place-overlay" onClick={onClose}>
+    <div className={out ? 'place-overlay place-overlay--out' : 'place-overlay'} onClick={requestClose}>
       <article
-        className="place-dialog"
+        className={out ? 'place-dialog place-dialog--out' : 'place-dialog'}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -37,7 +56,7 @@ export default function PlaceDialog({ place, onClose }: PlaceDialogProps) {
       >
         <div className="place-dialog-photo">
           <img src={place.image} alt={place.title} />
-          <button ref={closeRef} type="button" className="place-close" onClick={onClose}>
+          <button ref={closeRef} type="button" className="place-close" onClick={requestClose}>
             Закрыть
           </button>
         </div>

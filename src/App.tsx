@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppNavbar from './components/AppNavbar'
 import AccountPage from './pages/AccountPage'
 import HomePage from './pages/HomePage'
@@ -18,6 +18,17 @@ function PendingNotice() {
   )
 }
 
+function SiteFooter() {
+  const location = useLocation()
+  if (location.pathname === '/map') return null
+  return (
+    <footer className="site-footer">
+      <p>ГИС инвестиционного потенциала Норильска</p>
+      <p>Центральный район, Талнах, Кайеркан и Оганер.</p>
+    </footer>
+  )
+}
+
 export default function App() {
   return (
     <div className="app-shell">
@@ -32,6 +43,7 @@ export default function App() {
         <Route path="/review" element={<ReviewPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <SiteFooter />
     </div>
   )
 }
