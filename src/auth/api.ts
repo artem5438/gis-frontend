@@ -116,8 +116,25 @@ export type ParcelLayer = {
   }>
 }
 
-export async function parcelLayer(): Promise<ParcelLayer> {
-  const response = await send('/api/parcels')
+export type ParcelQuery = {
+  south: number
+  west: number
+  north: number
+  east: number
+  simplify: number
+}
+
+export async function parcelLayer(query?: ParcelQuery | null): Promise<ParcelLayer> {
+  const params = new URLSearchParams()
+  if (query) {
+    params.set('south', query.south.toFixed(6))
+    params.set('west', query.west.toFixed(6))
+    params.set('north', query.north.toFixed(6))
+    params.set('east', query.east.toFixed(6))
+    params.set('simplify', query.simplify.toFixed(6))
+  }
+  const path = params.size > 0 ? `/api/parcels?${params.toString()}` : '/api/parcels'
+  const response = await send(path)
   if (!response.ok) throw new Error(await readError(response))
   return (await response.json()) as ParcelLayer
 }

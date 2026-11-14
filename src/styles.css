@@ -180,6 +180,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 14px 0;
   border-top: 1px solid #e6e6e6;
@@ -199,6 +200,31 @@ body {
   margin: 4px 0 0;
   color: #5c5c5c;
   font-size: 13px;
+}
+
+.profile-reach {
+  display: flex;
+  flex: none;
+  border: 1px solid #e6e6e6;
+}
+
+.profile-reach button {
+  border: 0;
+  background: #fff;
+  color: #141414;
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.profile-reach button + button {
+  border-left: 1px solid #e6e6e6;
+}
+
+.profile-reach button.active {
+  background: #141414;
+  color: #fff;
 }
 
 .profile-save {

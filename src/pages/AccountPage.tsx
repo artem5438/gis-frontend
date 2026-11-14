@@ -3,6 +3,13 @@ import { Alert, Button, Form } from 'react-bootstrap'
 import { Navigate } from 'react-router-dom'
 import { statusLabel } from '../auth/api'
 import { useAuth } from '../auth/AuthContext'
+import { reachLabels, readDrawReach, writeDrawReach, type DrawReach } from '../map/reach'
+
+const reachNotes: Record<DrawReach, string> = {
+  near: 'Участки рисуются на несколько сотен метров вокруг центра экрана.',
+  screen: 'Участки рисуются только в текущем окне карты.',
+  city: 'Рисуются все сохранённые участки. На слабом устройстве страница может замереть.',
+}
 
 export default function AccountPage() {
   const auth = useAuth()
@@ -13,6 +20,8 @@ export default function AccountPage() {
   const [sourceError, setSourceError] = useState('')
   const [sourcePending, setSourcePending] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [reach, setReach] = useState<DrawReach>(readDrawReach)
+  const [savedReach, setSavedReach] = useState<DrawReach>(reach)
 
   if (!auth.ready) return <main className="auth-page" />
   if (!auth.account) return <Navigate to="/login" replace />
@@ -23,6 +32,7 @@ export default function AccountPage() {
   const rejected = auth.request?.decision === 'rejected'
   const canApply = !account.role && !waiting
   const sourceChanged = fromDatabase !== (account.from_database !== false)
+  const reachChanged = reach !== savedReach
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -41,6 +51,14 @@ export default function AccountPage() {
   const saveSource = async () => {
     setSourceError('')
     setSaved(false)
+    if (reachChanged) {
+      writeDrawReach(reach)
+      setSavedReach(reach)
+    }
+    if (!sourceChanged) {
+      setSaved(true)
+      return
+    }
     setSourcePending(true)
     try {
       await auth.saveSource(fromDatabase)
@@ -77,6 +95,27 @@ export default function AccountPage() {
           ))}
           <div className="profile-row">
             <div>
+              <div className="profile-label">Прорисовка земли</div>
+              <p>{reachNotes[reach]}</p>
+            </div>
+            <div className="profile-reach" role="group" aria-label="Прорисовка земли">
+              {(Object.keys(reachLabels) as DrawReach[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={reach === item ? 'active' : ''}
+                  onClick={() => {
+                    setSaved(false)
+                    setReach(item)
+                  }}
+                >
+                  {reachLabels[item]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="profile-row">
+            <div>
               <div className="profile-label">Хотите получать информацию из нашей базы данных?</div>
               <p>Включённый переключатель открывает карточку сохранённого участка. Выключенный спрашивает официальную карту.</p>
             </div>
@@ -98,7 +137,7 @@ export default function AccountPage() {
         {sourceError ? <Alert variant="danger">{sourceError}</Alert> : null}
         {saved ? <p className="auth-note">Сохранено.</p> : null}
         <div className="profile-save">
-          <Button type="button" className="auth-submit" disabled={!sourceChanged || sourcePending} onClick={saveSource}>
+          <Button type="button" className="auth-submit" disabled={(!sourceChanged && !reachChanged) || sourcePending} onClick={saveSource}>
             Сохранить изменения
           </Button>
         </div>

@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { districts, type District } from '../data/districts'
 import { categoryPaint, categoryTitle, landLegend } from '../map/categories'
 import { formatArea, formatDegrees, formatMeters, metersBetween, pathLength, ringArea, type LatLng } from '../map/measure'
+import { reachQuery, readDrawReach, type DrawReach } from '../map/reach'
 import 'leaflet/dist/leaflet.css'
 
 const bounds = districts.map((district) => [district.lat, district.lon]) as LatLngBoundsExpression
@@ -268,6 +269,57 @@ function ParcelCardView({ card }: { card: CardState }) {
   )
 }
 
+function ParcelWindow({
+  reach,
+  enabled,
+  reloadToken,
+  onLayer,
+  onError,
+}: {
+  reach: DrawReach
+  enabled: boolean
+  reloadToken: number
+  onLayer: (layer: ParcelLayer) => void
+  onError: (message: string) => void
+}) {
+  const map = useMap()
+  const onLayerRef = useRef(onLayer)
+  const onErrorRef = useRef(onError)
+  onLayerRef.current = onLayer
+  onErrorRef.current = onError
+
+  useEffect(() => {
+    if (!enabled) return
+    let alive = true
+    let request = 0
+    let timer = 0
+    const load = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        const id = ++request
+        parcelLayer(reachQuery(map, reach))
+          .then((next) => {
+            if (!alive || id !== request) return
+            onLayerRef.current(next)
+          })
+          .catch((err: unknown) => {
+            if (!alive || id !== request) return
+            onErrorRef.current(err instanceof Error ? err.message : 'Не удалось открыть слой участков')
+          })
+      }, reach === 'city' ? 0 : 250)
+    }
+    load()
+    if (reach !== 'city') map.on('moveend', load)
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+      map.off('moveend', load)
+    }
+  }, [map, reach, enabled, reloadToken])
+
+  return null
+}
+
 function parcelStyle(feature?: GeoJSON.Feature): PathOptions {
   const category = typeof feature?.properties?.land_category === 'string' ? feature.properties.land_category : ''
   const paint = categoryPaint(category)
@@ -309,6 +361,8 @@ export default function MapPage() {
   const [circleFixed, setCircleFixed] = useState(false)
   const [poly, setPoly] = useState<LatLng[]>([])
   const [polyFixed, setPolyFixed] = useState(false)
+  const [reach] = useState<DrawReach>(readDrawReach)
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     if (!verified) {
@@ -327,22 +381,6 @@ export default function MapPage() {
     if (!auth.ready || !verified) {
       setLayer(null)
       setLayerError('')
-      return
-    }
-    let alive = true
-    parcelLayer()
-      .then((next) => {
-        if (!alive) return
-        setLayer(next)
-        setLayerError('')
-      })
-      .catch((err: unknown) => {
-        if (!alive) return
-        setLayer(null)
-        setLayerError(err instanceof Error ? err.message : 'Не удалось открыть слой участков')
-      })
-    return () => {
-      alive = false
     }
   }, [auth.ready, verified])
 
@@ -368,10 +406,7 @@ export default function MapPage() {
       catalogWalk()
         .then(async (next) => {
           if (!alive) return
-          const layerNext = await parcelLayer()
-          if (!alive) return
-          setLayer(layerNext)
-          setLayerKey((current) => current + 1)
+          setReloadToken((current) => current + 1)
           setWalk(next)
           setWalkError('')
         })
@@ -398,14 +433,7 @@ export default function MapPage() {
         }
         setCard({ kind: 'parcel', parcel })
         if (fromDatabase) return
-        try {
-          const next = await parcelLayer()
-          setLayer(next)
-          setLayerKey((current) => current + 1)
-          setLayerError('')
-        } catch (err: unknown) {
-          setLayerError(err instanceof Error ? err.message : 'Не удалось открыть слой участков')
-        }
+        setReloadToken((current) => current + 1)
       })
       .catch((err: unknown) => {
         setCard({
@@ -626,6 +654,20 @@ export default function MapPage() {
             <FlyTo district={focus} focusToken={focusToken} jump={jump} />
             <MeasureZoom active={tool === 'line' || tool === 'polygon'} />
             <MapClicks onClick={onMapClick} onMove={onMapMove} onDouble={onMapDouble} />
+            <ParcelWindow
+              reach={reach}
+              enabled={auth.ready && verified}
+              reloadToken={reloadToken}
+              onLayer={(next) => {
+                setLayer(next)
+                setLayerKey((current) => current + 1)
+                setLayerError('')
+              }}
+              onError={(message) => {
+                setLayer(null)
+                setLayerError(message)
+              }}
+            />
             {visibleLayer && visibleLayer.features.length > 0 ? (
               <GeoJSON key={`${layerKey}:${hiddenCategories.join('|')}`} data={visibleLayer} style={parcelStyle} />
             ) : null}
