@@ -57,8 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     request,
     ready,
     async register(fullName, login, password) {
-      setAccount(await registerAccount(fullName, login, password))
-      setRequest(null)
+      await registerAccount(fullName, login, password)
     },
     async login(login, password) {
       const next = await loginAccount(login, password)

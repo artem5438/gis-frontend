@@ -79,7 +79,7 @@ export default function AccountPage() {
   ]
 
   return (
-    <main className="auth-page">
+    <main className="auth-page account-page">
       <section className="auth-card profile-card">
         <h1>Настройки профиля</h1>
         <p className="auth-note">Данные учётной записи</p>
@@ -134,9 +134,9 @@ export default function AccountPage() {
             </button>
           </div>
         </div>
-        {sourceError ? <Alert variant="danger">{sourceError}</Alert> : null}
-        {saved ? <p className="auth-note">Сохранено.</p> : null}
         <div className="profile-save">
+          {sourceError ? <Alert variant="danger">{sourceError}</Alert> : null}
+          {saved ? <p className="auth-note">Сохранено.</p> : null}
           <Button type="button" className="auth-submit" disabled={(!sourceChanged && !reachChanged) || sourcePending} onClick={saveSource}>
             Сохранить изменения
           </Button>

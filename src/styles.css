@@ -168,8 +168,17 @@ body {
   font-size: 18px;
 }
 
+.account-page {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+}
+
 .profile-card {
-  max-width: 720px;
+  max-width: none;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
 }
 
 .profile-rows {
@@ -229,8 +238,17 @@ body {
 
 .profile-save {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
   margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e6e6e6;
+}
+
+.profile-save .alert,
+.profile-save .auth-note {
+  margin: 0;
 }
 
 .profile-save .auth-submit {
@@ -1040,6 +1058,10 @@ body {
   overflow-wrap: anywhere;
 }
 
+.leaflet-control-attribution {
+  display: none;
+}
+
 .leaflet-tooltip {
   border: 1px solid #141414;
   color: #141414;
@@ -1165,14 +1187,60 @@ body {
   padding: 28px;
   border-top: 1px solid #e6e6e6;
   background: #fff;
-  color: #5c5c5c;
+  color: #141414;
 }
 
-.site-footer p {
+.site-footer-inner {
   max-width: 1120px;
   margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
 }
 
-.site-footer p + p {
-  margin-top: 4px;
+.site-footer-title {
+  max-width: 22ch;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+
+.site-footer-contacts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.site-footer-contacts div {
+  display: grid;
+  grid-template-columns: 4.8em 11em;
+  column-gap: 16px;
+  align-items: baseline;
+}
+
+.site-footer-contacts dt {
+  margin: 0;
+  color: #5c5c5c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.site-footer-contacts dd {
+  margin: 0;
+  color: #141414;
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .site-footer-inner {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .site-footer-contacts div {
+    grid-template-columns: 5.2em 1fr;
+  }
 }

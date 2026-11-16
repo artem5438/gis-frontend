@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Map as LeafletMap } from 'leaflet'
-import { AttributionControl, Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import type { LatLngBoundsExpression, PathOptions } from 'leaflet'
 import { catalogWalk, parcelAtPoint, parcelLayer, parcelStoredAtPoint, startCatalogWalk, type ParcelCard, type ParcelLayer, type WalkStatus } from '../auth/api'
 import { useAuth } from '../auth/AuthContext'
@@ -11,6 +11,15 @@ import { reachQuery, readDrawReach, type DrawReach } from '../map/reach'
 import 'leaflet/dist/leaflet.css'
 
 const bounds = districts.map((district) => [district.lat, district.lon]) as LatLngBoundsExpression
+const citySouth = 69.05
+const cityNorth = 69.79
+const cityWest = 86.93
+const cityEast = 88.84
+const cityBounds = [
+  [citySouth, cityWest],
+  [cityNorth, cityEast],
+] as LatLngBoundsExpression
+const minCityZoom = 10
 const viewStorageKey = 'norilsk-map-view'
 
 type MapView = { lat: number; lng: number; zoom: number }
@@ -22,8 +31,8 @@ function readMapView(): MapView | null {
     const view = JSON.parse(raw) as Partial<MapView>
     if (typeof view.lat !== 'number' || typeof view.lng !== 'number' || typeof view.zoom !== 'number') return null
     if (!Number.isFinite(view.lat) || !Number.isFinite(view.lng) || !Number.isFinite(view.zoom)) return null
-    if (view.lat < -90 || view.lat > 90 || view.lng < -180 || view.lng > 180) return null
-    if (view.zoom < 0 || view.zoom > 22) return null
+    if (view.lat < citySouth || view.lat > cityNorth || view.lng < cityWest || view.lng > cityEast) return null
+    if (view.zoom < minCityZoom || view.zoom > 18) return null
     return { lat: view.lat, lng: view.lng, zoom: view.zoom }
   } catch {
     return null
@@ -44,12 +53,10 @@ const bases = {
   streets: {
     label: 'Улицы',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
   satellite: {
     label: 'Спутник',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri',
   },
 } as const
 
@@ -295,6 +302,7 @@ function ParcelWindow({
     let timer = 0
     const load = () => {
       window.clearTimeout(timer)
+      const wait = reach === 'city' ? 0 : 250
       timer = window.setTimeout(() => {
         const id = ++request
         parcelLayer(reachQuery(map, reach))
@@ -306,10 +314,16 @@ function ParcelWindow({
             if (!alive || id !== request) return
             onErrorRef.current(err instanceof Error ? err.message : 'Не удалось открыть слой участков')
           })
-      }, reach === 'city' ? 0 : 250)
+      }, wait)
     }
     load()
-    if (reach !== 'city') map.on('moveend', load)
+    if (reach === 'city') {
+      return () => {
+        alive = false
+        window.clearTimeout(timer)
+      }
+    }
+    map.on('moveend', load)
     return () => {
       alive = false
       window.clearTimeout(timer)
@@ -622,7 +636,7 @@ export default function MapPage() {
     ? 'Открываем карту.'
     : verified
       ? layerError || (layer && layer.features.length > 0 ? 'Кадастровая карта.' : 'Кадастровая карта. Участков пока нет.')
-      : 'Обычная карта. Четыре района Норильска.'
+      : 'Четыре района Норильска.'
   const baseLayer = bases[base]
 
   return (
@@ -641,12 +655,15 @@ export default function MapPage() {
             center={savedView ? [savedView.lat, savedView.lng] : [69.38, 88.07]}
             zoom={savedView ? savedView.zoom : 11}
             zoomControl={false}
+            minZoom={minCityZoom}
+            maxZoom={18}
+            maxBounds={cityBounds}
+            maxBoundsViscosity={1}
             scrollWheelZoom
             attributionControl={false}
             className={tool === 'parcel' ? 'map-canvas map-canvas--pick' : tool === 'none' ? 'map-canvas' : 'map-canvas map-canvas--measure'}
           >
-            <AttributionControl prefix='<a href="https://leafletjs.com" title="A JavaScript library for interactive maps">Leaflet</a>' />
-            <TileLayer key={base} attribution={baseLayer.attribution} url={baseLayer.url} />
+            <TileLayer key={base} attribution="" url={baseLayer.url} />
             <BindMap mapRef={mapRef} />
             {savedView ? null : <FitDistricts />}
             <RememberView />

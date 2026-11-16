@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Alert, Button, Form } from 'react-bootstrap'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -10,7 +10,14 @@ export default function RegisterPage() {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
   const [pending, setPending] = useState(false)
+
+  useEffect(() => {
+    if (!done) return
+    const timer = window.setTimeout(() => navigate('/login'), 900)
+    return () => window.clearTimeout(timer)
+  }, [done, navigate])
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -18,7 +25,7 @@ export default function RegisterPage() {
     setPending(true)
     try {
       await auth.register(fullName, login, password)
-      navigate('/account')
+      setDone(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось зарегистрироваться')
     } finally {
@@ -30,8 +37,8 @@ export default function RegisterPage() {
     <main className="auth-page">
       <section className="auth-card">
         <h1>Регистрация</h1>
-        <p className="auth-note">После регистрации роль не назначается. Вы остаётесь посетителем, пока модератор не проверит заявку.</p>
         {error ? <Alert variant="danger">{error}</Alert> : null}
+        {done ? <Alert variant="success">Регистрация выполнена, теперь войдите в систему.</Alert> : null}
         <Form onSubmit={submit}>
           <Form.Group className="mb-3" controlId="register-name">
             <Form.Label>ФИО</Form.Label>
@@ -45,7 +52,7 @@ export default function RegisterPage() {
             <Form.Label>Пароль</Form.Label>
             <Form.Control type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required />
           </Form.Group>
-          <Button type="submit" className="auth-submit" disabled={pending}>
+          <Button type="submit" className="auth-submit" disabled={pending || done}>
             Создать учётную запись
           </Button>
         </Form>

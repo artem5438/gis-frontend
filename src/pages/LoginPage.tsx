@@ -29,7 +29,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <section className="auth-card">
         <h1>Вход</h1>
-        <p className="auth-note">Вход выполняется по логину и паролю. Одинаковое ФИО у разных людей входу не мешает.</p>
+        <p className="auth-note">Вход выполняется по логину и паролю.</p>
         {error ? <Alert variant="danger">{error}</Alert> : null}
         <Form onSubmit={submit}>
           <Form.Group className="mb-3" controlId="login-name">

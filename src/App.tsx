@@ -20,11 +20,27 @@ function PendingNotice() {
 
 function SiteFooter() {
   const location = useLocation()
-  if (location.pathname === '/map') return null
+  const shown = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register'
+  if (!shown) return null
   return (
     <footer className="site-footer">
-      <p>ГИС инвестиционного потенциала Норильска</p>
-      <p>Центральный район, Талнах, Кайеркан и Оганер.</p>
+      <div className="site-footer-inner">
+        <p className="site-footer-title">ГИС оценки инвестиционного потенциала Норильска</p>
+        <dl className="site-footer-contacts">
+          <div>
+            <dt>Телефон</dt>
+            <dd>+7 (3919) 00-00-00</dd>
+          </div>
+          <div>
+            <dt>Почта</dt>
+            <dd>info@example.ru</dd>
+          </div>
+          <div>
+            <dt>Город</dt>
+            <dd>Норильск</dd>
+          </div>
+        </dl>
+      </div>
     </footer>
   )
 }

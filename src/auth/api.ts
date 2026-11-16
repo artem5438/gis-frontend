@@ -122,16 +122,21 @@ export type ParcelQuery = {
   north: number
   east: number
   simplify: number
+  squares: boolean
+  whole?: boolean
 }
 
 export async function parcelLayer(query?: ParcelQuery | null): Promise<ParcelLayer> {
   const params = new URLSearchParams()
-  if (query) {
+  if (query?.whole && query.squares) {
+    params.set('squares', '1')
+  } else if (query) {
     params.set('south', query.south.toFixed(6))
     params.set('west', query.west.toFixed(6))
     params.set('north', query.north.toFixed(6))
     params.set('east', query.east.toFixed(6))
     params.set('simplify', query.simplify.toFixed(6))
+    if (query.squares) params.set('squares', '1')
   }
   const path = params.size > 0 ? `/api/parcels?${params.toString()}` : '/api/parcels'
   const response = await send(path)
