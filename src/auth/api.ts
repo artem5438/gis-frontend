@@ -179,6 +179,20 @@ export type ParcelScore = {
   median_ha: number
 }
 
+export type AnalyticsCell = {
+  district: string
+  category: string
+  count: number
+  area_ha: number
+}
+
+export async function analytics(): Promise<AnalyticsCell[]> {
+  const response = await send('/api/analytics')
+  if (!response.ok) throw new Error(await readError(response))
+  const body = (await response.json()) as { cells: AnalyticsCell[] }
+  return body.cells ?? []
+}
+
 export type WalkStatus = {
   state: 'idle' | 'running' | 'done'
   saved: number

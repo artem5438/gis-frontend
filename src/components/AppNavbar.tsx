@@ -49,6 +49,15 @@ export default function AppNavbar() {
             >
               Карта
             </button>
+            {auth.account?.role ? (
+              <button
+                type="button"
+                className={`gis-nav-btn${location.pathname === '/analytics' ? ' active' : ''}`}
+                onClick={() => go('/analytics')}
+              >
+                Аналитика
+              </button>
+            ) : null}
             {auth.account ? (
               <>
                 {auth.account.role?.code === 'moderator' ? (

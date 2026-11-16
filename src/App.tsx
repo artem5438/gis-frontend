@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppNavbar from './components/AppNavbar'
 import AccountPage from './pages/AccountPage'
+import AnalyticsPage from './pages/AnalyticsPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import MapPage from './pages/MapPage'
@@ -53,6 +54,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/map" element={<MapPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/account" element={<AccountPage />} />
