@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { Map as LeafletMap } from 'leaflet'
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import type { LatLngBoundsExpression, PathOptions } from 'leaflet'
@@ -235,44 +236,148 @@ function positions(points: LatLng[]): [number, number][] {
   return points.map((point) => [point.lat, point.lng])
 }
 
-function ParcelCardView({ card }: { card: CardState }) {
-  if (card.kind === 'idle') {
-    return <p className="map-card-note">Щёлкните по участку на карте.</p>
+function points(value: number): string {
+  return value.toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+}
+
+function hectares(value: number): string {
+  return `${value.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} га`
+}
+
+type FieldRow = { label: string; value: string; hint?: string }
+
+function Hint({ text }: { text: string }) {
+  const mark = useRef<HTMLButtonElement>(null)
+  const [place, setPlace] = useState<{ top: number; left: number; above: boolean } | null>(null)
+
+  function show() {
+    const rect = mark.current?.getBoundingClientRect()
+    if (!rect) return
+    const width = 220
+    const left = Math.min(Math.max(rect.left, 8), window.innerWidth - width - 8)
+    const above = rect.bottom + 96 > window.innerHeight
+    setPlace({ top: above ? rect.top - 6 : rect.bottom + 6, left, above })
   }
-  if (card.kind === 'loading') {
-    return <p className="map-card-note">Ищем участок…</p>
-  }
-  if (card.kind === 'empty') {
-    return <p className="map-card-note">В этой точке участка нет.</p>
-  }
-  if (card.kind === 'error') {
-    return <p className="map-card-note">{card.message}</p>
-  }
-  const parcel = card.parcel
-  const rows = [
-    ['Вид объекта недвижимости', field(parcel.object_kind)],
-    ['Вид земельного участка', field(parcel.parcel_kind)],
-    ['Дата присвоения', field(parcel.assigned_on)],
-    ['Кадастровый номер', parcel.cadastral_number],
-    ['Кадастровый квартал', field(parcel.cadastral_quarter)],
-    ['Адрес', field(parcel.address)],
-    [parcel.area_name ? `Площадь ${parcel.area_name}` : 'Площадь', squareMeters(parcel.area_m2)],
-    ['Статус', field(parcel.status)],
-    ['Категория земель', field(parcel.land_category)],
-    ['Вид разрешённого использования', field(parcel.permitted_use)],
-    ['Форма собственности', field(parcel.ownership_form)],
-    ['Кадастровая стоимость', money(parcel.cadastral_cost, 'руб.')],
-    ['Удельный показатель кадастровой стоимости', money(parcel.cost_index, 'руб./кв. м')],
-  ]
+
+  return (
+    <>
+      <button
+        ref={mark}
+        type="button"
+        className="map-card-hint"
+        aria-label="Пояснение"
+        onMouseEnter={show}
+        onMouseLeave={() => setPlace(null)}
+        onFocus={show}
+        onBlur={() => setPlace(null)}
+      >
+        ?
+      </button>
+      {place
+        ? createPortal(
+            <span className={place.above ? 'map-card-hint-pop above' : 'map-card-hint-pop'} style={{ top: place.top, left: place.left }} role="tooltip">
+              {text}
+            </span>,
+            document.body,
+          )
+        : null}
+    </>
+  )
+}
+
+function FieldList({ rows }: { rows: FieldRow[] }) {
   return (
     <dl className="map-card-fields">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
+      {rows.map((row) => (
+        <div key={row.label}>
+          <dt>
+            {row.label}
+            {row.hint ? <Hint text={row.hint} /> : null}
+          </dt>
+          <dd>{row.value}</dd>
         </div>
       ))}
     </dl>
+  )
+}
+
+function ParcelCardView({ card, onClose }: { card: CardState; onClose: () => void }) {
+  const parcelId = card.kind === 'parcel' ? card.parcel.id : 0
+  const [tab, setTab] = useState<'plot' | 'score'>('plot')
+  useEffect(() => {
+    setTab('plot')
+  }, [parcelId])
+
+  let body: ReactNode
+  if (card.kind === 'idle') {
+    body = <p className="map-card-note">Щёлкните по участку на карте.</p>
+  } else if (card.kind === 'loading') {
+    body = <p className="map-card-note">Ищем участок…</p>
+  } else if (card.kind === 'empty') {
+    body = <p className="map-card-note">В этой точке участка нет.</p>
+  } else if (card.kind === 'error') {
+    body = <p className="map-card-note">{card.message}</p>
+  } else if (tab === 'score') {
+    const score = card.parcel.score
+    body = score?.ready ? (
+      <FieldList
+        rows={[
+          { label: 'Категория земель', value: score.category || 'не указано' },
+          { label: 'Район', value: score.district || 'не указано' },
+          { label: 'Оценка', value: points(score.total), hint: 'Общий балл участка от 0 до 100. Чем выше, тем удачнее место и размер.' },
+          { label: 'Местоположение', value: `${points(score.location_points)} из ${points(score.location_max)}`, hint: 'Баллы за место. Чем ближе участок к центру своего района, тем их больше. Максимум 75.' },
+          { label: 'До центра района', value: formatMeters(score.distance_m), hint: 'Как далеко участок от центра своего района.' },
+          { label: 'Площадь', value: `${points(score.area_points)} из ${points(score.area_max)}`, hint: 'Баллы за размер. Обычный для этого района размер получает больше. Максимум 25.' },
+          { label: 'Медиана площади', value: hectares(score.median_ha), hint: 'Обычный размер таких же участков в этом районе.' },
+        ]}
+      />
+    ) : (
+      <p className="map-card-note">{score?.reason || 'Оценка не собралась.'}</p>
+    )
+  } else {
+    const parcel = card.parcel
+    body = (
+      <FieldList
+        rows={[
+          { label: 'Вид объекта недвижимости', value: field(parcel.object_kind) },
+          { label: 'Вид земельного участка', value: field(parcel.parcel_kind) },
+          { label: 'Дата присвоения', value: field(parcel.assigned_on) },
+          { label: 'Кадастровый номер', value: parcel.cadastral_number },
+          { label: 'Кадастровый квартал', value: field(parcel.cadastral_quarter) },
+          { label: 'Адрес', value: field(parcel.address) },
+          { label: parcel.area_name ? `Площадь ${parcel.area_name}` : 'Площадь', value: squareMeters(parcel.area_m2) },
+          { label: 'Статус', value: field(parcel.status) },
+          { label: 'Категория земель', value: field(parcel.land_category) },
+          { label: 'Вид разрешённого использования', value: field(parcel.permitted_use) },
+          { label: 'Форма собственности', value: field(parcel.ownership_form) },
+          { label: 'Кадастровая стоимость', value: money(parcel.cadastral_cost, 'руб.') },
+          { label: 'Удельный показатель кадастровой стоимости', value: money(parcel.cost_index, 'руб./кв. м') },
+        ]}
+      />
+    )
+  }
+
+  return (
+    <>
+      <div className="map-card-head">
+        {card.kind === 'parcel' ? (
+          <div className="map-card-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={tab === 'plot'} className={tab === 'plot' ? 'active' : ''} onClick={() => setTab('plot')}>
+              Участок
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'score'} className={tab === 'score' ? 'active' : ''} onClick={() => setTab('score')}>
+              Оценка
+            </button>
+          </div>
+        ) : (
+          <h2>Участок</h2>
+        )}
+        <button type="button" onClick={onClose}>
+          Свернуть
+        </button>
+      </div>
+      {body}
+    </>
   )
 }
 
@@ -933,13 +1038,7 @@ export default function MapPage() {
           ) : null}
           {verified && cardOpen ? (
             <aside className="map-card map-card--float">
-              <div className="map-card-head">
-                <h2>Участок</h2>
-                <button type="button" onClick={() => setCardOpen(false)}>
-                  Свернуть
-                </button>
-              </div>
-              <ParcelCardView card={card} />
+              <ParcelCardView card={card} onClose={() => setCardOpen(false)} />
             </aside>
           ) : null}
         </div>

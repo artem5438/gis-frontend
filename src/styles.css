@@ -1017,6 +1017,26 @@ body {
   padding: 4px 8px;
 }
 
+.map-card-head .map-card-tabs {
+  display: flex;
+  gap: 14px;
+}
+
+.map-card-head .map-card-tabs button {
+  margin: 0;
+  padding: 2px 0 4px;
+  background: transparent;
+  color: #5c5c5c;
+  font-size: 16px;
+  font-weight: 700;
+  border-bottom: 2px solid transparent;
+}
+
+.map-card-head .map-card-tabs button.active {
+  color: #141414;
+  border-bottom-color: #141414;
+}
+
 .map-card--float {
   position: absolute;
   top: 12px;
@@ -1047,8 +1067,51 @@ body {
 }
 
 .map-card-fields dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #5c5c5c;
   font-size: 12px;
+}
+
+.map-card-hint {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid #8a8a8a;
+  border-radius: 50%;
+  background: #fff;
+  color: #5c5c5c;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 12px;
+  cursor: help;
+  flex: 0 0 auto;
+}
+
+.map-card-hint:hover,
+.map-card-hint:focus-visible {
+  color: #141414;
+  border-color: #141414;
+  outline: none;
+}
+
+.map-card-hint-pop {
+  position: fixed;
+  z-index: 3000;
+  width: 220px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #141414;
+  border: 1px solid #141414;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.map-card-hint-pop.above {
+  transform: translateY(-100%);
 }
 
 .map-card-fields dd {

@@ -161,6 +161,22 @@ export type ParcelCard = {
   ownership_form: string
   cadastral_cost: number | null
   cost_index: number | null
+  score?: ParcelScore
+}
+
+export type ParcelScore = {
+  ready: boolean
+  reason?: string
+  category?: string
+  district?: string
+  total: number
+  location_points: number
+  location_max: number
+  area_points: number
+  area_max: number
+  distance_m: number
+  area_ha: number
+  median_ha: number
 }
 
 export type WalkStatus = {
