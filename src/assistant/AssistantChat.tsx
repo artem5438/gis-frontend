@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { askAssistant } from '../auth/api'
 import { useAuth } from '../auth/AuthContext'
 
@@ -6,12 +7,18 @@ type ChatLine = {
   id: string
   role: 'user' | 'assistant'
   text: string
+  sources?: string[]
+  plot?: { number: string; lat: number; lng: number } | null
 }
+
+export type ParcelFocus = { number: string; lat: number; lng: number; token: number }
 
 type ChatValue = {
   lines: ChatLine[]
   pending: boolean
+  focus: ParcelFocus | null
   send: (text: string) => Promise<void>
+  showOnMap: (plot: { number: string; lat: number; lng: number }) => void
 }
 
 const ChatContext = createContext<ChatValue | null>(null)
@@ -22,9 +29,14 @@ function useChat(): ChatValue {
   return value
 }
 
+export function useParcelFocus(): ParcelFocus | null {
+  return useContext(ChatContext)?.focus ?? null
+}
+
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<ChatLine[]>([])
   const [pending, setPending] = useState(false)
+  const [focus, setFocus] = useState<ParcelFocus | null>(null)
 
   const send = async (text: string) => {
     const message = text.trim()
@@ -32,8 +44,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     setLines((current) => [...current, { id: crypto.randomUUID(), role: 'user', text: message }])
     setPending(true)
     try {
-      const answer = await askAssistant(message)
-      setLines((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', text: answer }])
+      const reply = await askAssistant(message)
+      setLines((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', text: reply.answer, sources: reply.sources, plot: reply.plot }])
     } catch (error) {
       const note = error instanceof Error ? error.message : 'Модель не ответила'
       setLines((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', text: note }])
@@ -42,20 +54,23 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return <ChatContext.Provider value={{ lines, pending, send }}>{children}</ChatContext.Provider>
+  const showOnMap = (plot: { number: string; lat: number; lng: number }) => {
+    setFocus({ ...plot, token: Date.now() })
+  }
+
+  return <ChatContext.Provider value={{ lines, pending, focus, send, showOnMap }}>{children}</ChatContext.Provider>
 }
 
 function greeting(fullName: string | undefined): string {
   const name = fullName?.trim()
-  if (name) {
-    return `Здравствуйте, ${name}. Спросите про балл участка или про правила в документах. Если в текстах ответа нет, я так и скажу.`
-  }
-  return 'Здравствуйте. Спросите про балл участка или про правила в документах. Если в текстах ответа нет, я так и скажу.'
+  if (name) return `Здравствуйте, ${name}. Чем могу помочь?`
+  return 'Здравствуйте. Чем могу помочь?'
 }
 
-export function AssistantDialog({ tall, onDragStart, onClose }: { tall?: boolean; onDragStart?: (event: ReactPointerEvent) => void; onClose?: () => void }) {
+export function AssistantDialog({ tall, onDragStart, onClose, onReveal }: { tall?: boolean; onDragStart?: (event: ReactPointerEvent) => void; onClose?: () => void; onReveal?: () => void }) {
   const auth = useAuth()
   const chat = useChat()
+  const navigate = useNavigate()
   const [draft, setDraft] = useState('')
   const threadRef = useRef<HTMLDivElement>(null)
   const welcome = greeting(auth.account?.full_name)
@@ -90,12 +105,32 @@ export function AssistantDialog({ tall, onDragStart, onClose }: { tall?: boolean
         ) : null}
       </header>
       <div className="assistant-thread" ref={threadRef}>
-        {thread.map((line) => (
-          <p key={line.id} className={line.role === 'user' ? 'assistant-bubble assistant-bubble--user' : 'assistant-bubble'}>
-            {line.text}
-          </p>
-        ))}
-        {chat.pending ? <p className="assistant-bubble assistant-bubble--wait">Смотрю документы.</p> : null}
+        {thread.map((line) =>
+          line.role === 'user' ? (
+            <p key={line.id} className="assistant-bubble assistant-bubble--user">
+              {line.text}
+            </p>
+          ) : (
+            <div key={line.id} className="assistant-turn">
+              <p className="assistant-bubble">{line.text}</p>
+              {line.sources && line.sources.length > 0 ? <p className="assistant-source">{line.sources.join(' · ')}</p> : null}
+              {line.plot ? (
+                <button
+                  type="button"
+                  className="assistant-map"
+                  onClick={() => {
+                    chat.showOnMap(line.plot!)
+                    onReveal?.()
+                    navigate('/map')
+                  }}
+                >
+                  Показать на карте
+                </button>
+              ) : null}
+            </div>
+          ),
+        )}
+        {chat.pending ? <p className="assistant-bubble assistant-bubble--wait">Думаю над ответом.</p> : null}
       </div>
       <form className="assistant-compose" onSubmit={submit}>
         <input
@@ -176,7 +211,7 @@ export function AssistantDock() {
     <>
       {open ? (
         <div className="assistant-float" style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
-          <AssistantDialog onDragStart={startDrag('move')} onClose={() => setOpen(false)} />
+          <AssistantDialog onDragStart={startDrag('move')} onClose={() => setOpen(false)} onReveal={() => setOpen(false)} />
           <button type="button" className="assistant-resize" aria-label="Изменить размер" onPointerDown={startDrag('resize')} />
         </div>
       ) : null}

@@ -278,15 +278,19 @@ export async function deleteAssistantDocument(id: number): Promise<void> {
   if (!response.ok) throw new Error(await readError(response))
 }
 
-export async function askAssistant(message: string): Promise<string> {
+export async function askAssistant(message: string): Promise<{ answer: string; sources: string[]; plot: { number: string; lat: number; lng: number } | null }> {
   const response = await send('/api/assistant/ask', {
     method: 'POST',
     body: JSON.stringify({ message }),
   })
   if (!response.ok) throw new Error(await readError(response))
-  const body = (await response.json()) as { answer?: string }
-  const answer = body.answer?.trim()
-  return answer || 'В документах этого нет.'
+  const body = (await response.json()) as { answer?: string; sources?: string[]; map?: { number?: string; lat?: number; lng?: number } }
+  const answer = body.answer?.trim() || 'Извините, у меня нет этой информации.'
+  const sources = answer === 'Извините, у меня нет этой информации.' ? [] : (body.sources ?? []).filter((item) => item.trim() !== '')
+  const plot = body.map?.number && typeof body.map.lat === 'number' && typeof body.map.lng === 'number'
+    ? { number: body.map.number, lat: body.map.lat, lng: body.map.lng }
+    : null
+  return { answer, sources, plot }
 }
 
 export function statusLabel(status: string): string {

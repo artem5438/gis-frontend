@@ -4,7 +4,7 @@ import type { Map as LeafletMap } from 'leaflet'
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import type { LatLngBoundsExpression, PathOptions } from 'leaflet'
 import { catalogWalk, parcelAtPoint, parcelLayer, parcelStoredAtPoint, startCatalogWalk, type ParcelCard, type ParcelLayer, type WalkStatus } from '../auth/api'
-import { AssistantDock } from '../assistant/AssistantChat'
+import { AssistantDock, useParcelFocus } from '../assistant/AssistantChat'
 import { useAuth } from '../auth/AuthContext'
 import { districts, type District } from '../data/districts'
 import { categoryPaint, categoryTitle, landLegend } from '../map/categories'
@@ -440,14 +440,20 @@ function ParcelWindow({
   return null
 }
 
-function parcelStyle(feature?: GeoJSON.Feature): PathOptions {
+function parcelStyle(feature: GeoJSON.Feature | undefined, glow: string): PathOptions {
   const category = typeof feature?.properties?.land_category === 'string' ? feature.properties.land_category : ''
   const paint = categoryPaint(category)
+  const number = typeof feature?.properties?.cadastral_number === 'string' ? feature.properties.cadastral_number : ''
+  if (glow && number === glow) {
+    return { color: '#141414', weight: 4, fillColor: paint.fill, fillOpacity: 0.92 }
+  }
   return { color: paint.stroke, weight: 2, fillColor: paint.fill, fillOpacity: 0.55 }
 }
 
 export default function MapPage() {
   const auth = useAuth()
+  const focusRequest = useParcelFocus()
+  const [glow, setGlow] = useState('')
   const [savedView] = useState(readMapView)
   const verified = auth.account?.verification_status === 'verified'
   const fromDatabase = auth.account?.from_database !== false
@@ -483,6 +489,32 @@ export default function MapPage() {
   const [polyFixed, setPolyFixed] = useState(false)
   const [reach] = useState<DrawReach>(readDrawReach)
   const [reloadToken, setReloadToken] = useState(0)
+
+  useEffect(() => {
+    if (!focusRequest || !verified) return
+    setGlow(focusRequest.number)
+    setJump({ lat: focusRequest.lat, lng: focusRequest.lng, token: focusRequest.token })
+    setCard({ kind: 'loading' })
+    setCardOpen(true)
+    const lookup = fromDatabase ? parcelStoredAtPoint : parcelAtPoint
+    let alive = true
+    lookup(focusRequest.lat, focusRequest.lng)
+      .then(async (parcel) => {
+        if (!alive) return
+        if (!parcel) {
+          setCard({ kind: 'empty' })
+          return
+        }
+        setCard({ kind: 'parcel', parcel })
+      })
+      .catch((err: unknown) => {
+        if (!alive) return
+        setCard({ kind: 'error', message: err instanceof Error ? err.message : 'Карточка не открылась' })
+      })
+    return () => {
+      alive = false
+    }
+  }, [focusRequest, verified, fromDatabase])
 
   useEffect(() => {
     if (!verified) {
@@ -542,6 +574,7 @@ export default function MapPage() {
   }, [moderator, walk?.state])
 
   function pickParcel(lat: number, lng: number) {
+    setGlow('')
     if (card.kind === 'loading') return
     setCard({ kind: 'loading' })
     const lookup = fromDatabase ? parcelStoredAtPoint : parcelAtPoint
@@ -792,7 +825,7 @@ export default function MapPage() {
               }}
             />
             {visibleLayer && visibleLayer.features.length > 0 ? (
-              <GeoJSON key={`${layerKey}:${hiddenCategories.join('|')}`} data={visibleLayer} style={parcelStyle} />
+              <GeoJSON key={`${layerKey}:${hiddenCategories.join('|')}:${glow}`} data={visibleLayer} style={(feature) => parcelStyle(feature, glow)} />
             ) : null}
             {districts.map((district) => (
               <CircleMarker
@@ -1039,7 +1072,7 @@ export default function MapPage() {
           ) : null}
           {verified && cardOpen ? (
             <aside className="map-card map-card--float">
-              <ParcelCardView card={card} onClose={() => setCardOpen(false)} />
+              <ParcelCardView card={card} onClose={() => { setCardOpen(false); setGlow('') }} />
             </aside>
           ) : null}
           <AssistantDock />
