@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { AssistantProvider } from './assistant/AssistantChat'
 import AppNavbar from './components/AppNavbar'
 import AccountPage from './pages/AccountPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import AssistantPage from './pages/AssistantPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import MapPage from './pages/MapPage'
@@ -51,16 +53,19 @@ export default function App() {
     <div className="app-shell">
       <AppNavbar />
       <PendingNotice />
+      <AssistantProvider>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/review" element={<ReviewPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </AssistantProvider>
       <SiteFooter />
     </div>
   )

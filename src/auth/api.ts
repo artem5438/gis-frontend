@@ -240,6 +240,17 @@ export async function decideApplication(id: number, decision: 'approved' | 'reje
   if (!response.ok) throw new Error(await readError(response))
 }
 
+export async function askAssistant(message: string): Promise<string> {
+  const response = await send('/api/assistant/ask', {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  const body = (await response.json()) as { answer?: string }
+  const answer = body.answer?.trim()
+  return answer || 'В документах этого нет.'
+}
+
 export function statusLabel(status: string): string {
   if (status === 'visitor') return 'Посетитель'
   if (status === 'verified') return 'Проверен'

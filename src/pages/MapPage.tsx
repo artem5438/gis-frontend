@@ -4,6 +4,7 @@ import type { Map as LeafletMap } from 'leaflet'
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import type { LatLngBoundsExpression, PathOptions } from 'leaflet'
 import { catalogWalk, parcelAtPoint, parcelLayer, parcelStoredAtPoint, startCatalogWalk, type ParcelCard, type ParcelLayer, type WalkStatus } from '../auth/api'
+import { AssistantDock } from '../assistant/AssistantChat'
 import { useAuth } from '../auth/AuthContext'
 import { districts, type District } from '../data/districts'
 import { categoryPaint, categoryTitle, landLegend } from '../map/categories'
@@ -1041,6 +1042,7 @@ export default function MapPage() {
               <ParcelCardView card={card} onClose={() => setCardOpen(false)} />
             </aside>
           ) : null}
+          <AssistantDock />
         </div>
       </div>
     </main>
