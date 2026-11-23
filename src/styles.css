@@ -256,6 +256,164 @@ body {
   border-color: #141414;
 }
 
+.profile-docs-open {
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  color: #141414;
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 14px;
+  cursor: pointer;
+  flex: none;
+}
+
+.profile-docs-open:hover {
+  background: #141414;
+  color: #fff;
+}
+
+.files-dialog {
+  width: min(1080px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 0;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
+  animation: place-rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  padding: 22px 24px 8px;
+}
+
+.files-dialog-head,
+.files-dialog .profile-doc-upload {
+  flex: none;
+}
+
+.files-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.files-dialog-head h2 {
+  margin: 0;
+  color: #141414;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.files-dialog-head p,
+.profile-doc p,
+.profile-doc-empty {
+  margin: 6px 0 0;
+  color: #5c5c5c;
+  font-size: 13px;
+}
+
+.files-dialog-close {
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  color: #141414;
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 14px;
+  cursor: pointer;
+  flex: none;
+}
+
+.files-dialog-close:hover {
+  background: #141414;
+  color: #fff;
+}
+
+.files-dialog-close:disabled,
+.files-dialog-close:disabled:hover {
+  opacity: 0.5;
+  cursor: default;
+  background: #fff;
+  color: #141414;
+}
+
+.files-dialog-list {
+  margin-top: 8px;
+  overflow: auto;
+}
+
+.profile-doc-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.profile-doc-upload .form-control {
+  max-width: 420px;
+}
+
+.profile-doc-upload .alert {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.profile-doc-list {
+  margin-top: 8px;
+}
+
+.profile-doc {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid #e6e6e6;
+}
+
+.profile-doc > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-value {
+  overflow-wrap: anywhere;
+}
+
+.profile-doc-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.profile-doc-actions button,
+.profile-doc-title {
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  color: #141414;
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.profile-doc-actions button {
+  cursor: pointer;
+}
+
+.profile-doc-title {
+  width: 100%;
+  max-width: 100%;
+  font-weight: 400;
+}
+
+.files-dialog .profile-doc-upload .form-control {
+  max-width: none;
+  flex: 1;
+}
+
+.profile-doc-empty {
+  margin-top: 14px;
+}
+
 .source-switch {
   width: 44px;
   height: 26px;

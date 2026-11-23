@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Alert, Button, Form } from 'react-bootstrap'
 import { Navigate } from 'react-router-dom'
+import DocumentLibrary from '../assistant/DocumentLibrary'
 import { statusLabel } from '../auth/api'
 import { useAuth } from '../auth/AuthContext'
 import { reachLabels, readDrawReach, writeDrawReach, type DrawReach } from '../map/reach'
@@ -133,6 +134,7 @@ export default function AccountPage() {
               <span />
             </button>
           </div>
+          {account.role ? <DocumentLibrary /> : null}
         </div>
         <div className="profile-save">
           {sourceError ? <Alert variant="danger">{sourceError}</Alert> : null}

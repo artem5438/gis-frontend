@@ -240,6 +240,44 @@ export async function decideApplication(id: number, decision: 'approved' | 'reje
   if (!response.ok) throw new Error(await readError(response))
 }
 
+export type AssistantDocument = {
+  id: number
+  title: string
+  created_at: string
+  author: string | null
+  can_edit: boolean
+}
+
+export async function assistantDocuments(): Promise<AssistantDocument[]> {
+  const response = await send('/api/assistant/documents')
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as AssistantDocument[]
+}
+
+export async function uploadAssistantDocument(file: File): Promise<void> {
+  const body = new FormData()
+  body.append('file', file)
+  const response = await fetch('/api/assistant/documents', {
+    method: 'POST',
+    credentials: 'include',
+    body,
+  })
+  if (!response.ok) throw new Error(await readError(response))
+}
+
+export async function renameAssistantDocument(id: number, title: string): Promise<void> {
+  const response = await send(`/api/assistant/documents/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+}
+
+export async function deleteAssistantDocument(id: number): Promise<void> {
+  const response = await send(`/api/assistant/documents/${id}`, { method: 'DELETE' })
+  if (!response.ok) throw new Error(await readError(response))
+}
+
 export async function askAssistant(message: string): Promise<string> {
   const response = await send('/api/assistant/ask', {
     method: 'POST',
