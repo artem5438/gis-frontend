@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Map as LeafletMap } from 'leaflet'
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import type { LatLngBoundsExpression, PathOptions } from 'leaflet'
-import { catalogWalk, parcelAtPoint, parcelLayer, parcelStoredAtPoint, startCatalogWalk, type ParcelCard, type ParcelLayer, type WalkStatus } from '../auth/api'
+import { catalogWalk, parcelAtPoint, parcelLayer, parcelQuarter, parcelStoredAtPoint, startCatalogWalk, type ParcelCard, type ParcelLayer, type ParcelQuarter, type WalkStatus } from '../auth/api'
+import AnalyticsChart, { type ChartKind } from '../components/AnalyticsChart'
 import { AssistantDock, useParcelFocus } from '../assistant/AssistantChat'
 import { useAuth } from '../auth/AuthContext'
 import { districts, type District } from '../data/districts'
@@ -302,12 +303,172 @@ function FieldList({ rows }: { rows: FieldRow[] }) {
   )
 }
 
-function ParcelCardView({ card, onClose }: { card: CardState; onClose: () => void }) {
+type FloatBox = { x: number; y: number; w: number; h: number }
+
+const quarterChartKinds: ChartKind[] = ['bar', 'horizontal', 'pie', 'donut']
+const useColors = ['#141414', '#7a5a3a', '#4d78b0', '#5d8a48', '#a85b55', '#8d6a96', '#8c7a22', '#6b7280']
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+function clampMove(box: FloatBox, frameW: number, frameH: number): FloatBox {
+  return {
+    ...box,
+    x: clamp(box.x, 8, Math.max(8, frameW - 120)),
+    y: clamp(box.y, 8, Math.max(8, frameH - 64)),
+  }
+}
+
+function clampResize(box: FloatBox, frameW: number, frameH: number): FloatBox {
+  return {
+    ...box,
+    w: clamp(box.w, 280, Math.max(280, frameW - box.x - 8)),
+    h: clamp(box.h, 220, Math.max(220, frameH - box.y - 8)),
+  }
+}
+
+function clampCard(box: FloatBox, frameW: number, frameH: number): FloatBox {
+  return clampResize(clampMove(box, frameW, frameH), frameW, frameH)
+}
+
+function growCard(box: FloatBox, frameW: number, frameH: number): FloatBox {
+  const next = {
+    ...box,
+    w: box.w < 520 ? Math.min(560, Math.max(box.w, frameW - 16)) : box.w,
+    h: box.h < 560 ? Math.min(720, Math.max(box.h, frameH - 16)) : box.h,
+  }
+  if (next.x + next.w > frameW - 8) next.x = Math.max(8, frameW - next.w - 8)
+  if (next.y + next.h > frameH - 8) next.y = Math.max(8, frameH - next.h - 8)
+  return clampCard(next, frameW, frameH)
+}
+
+function keepClick(event: ReactPointerEvent) {
+  event.stopPropagation()
+}
+
+function rubPerMeter(value: number): string {
+  return `${value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} руб./кв. м`
+}
+
+function countLabel(value: number): string {
+  return Math.round(value).toLocaleString('ru-RU')
+}
+
+function pairSlices(subject: number, median: number): { name: string; value: number; color: string }[] {
+  return [
+    { name: 'Этот участок', value: subject, color: '#141414' },
+    { name: 'Медиана соседей', value: median, color: '#7a5a3a' },
+  ]
+}
+
+function QuarterBody({
+  quarter,
+  error,
+  graphs,
+  onToggle,
+}: {
+  quarter: ParcelQuarter | null
+  error: string
+  graphs: boolean
+  onToggle: () => void
+}) {
+  if (error) return <p className="map-card-note">{error}</p>
+  if (!quarter) return <p className="map-card-note">Собираем квартал…</p>
+  if (!quarter.ready) return <p className="map-card-note">{quarter.reason || 'Сравнить не с чем.'}</p>
+
+  const ofNeighbors = (value: number) => `${value.toLocaleString('ru-RU')} из ${quarter.neighbor_count.toLocaleString('ru-RU')}`
+  const categories = (quarter.categories ?? []).map((row) => ({
+    name: row.name,
+    value: row.count,
+    color: categoryPaint(row.name).stroke,
+  }))
+  const uses = (quarter.uses ?? []).map((row, index) => ({
+    name: row.name,
+    value: row.count,
+    color: useColors[index % useColors.length],
+  }))
+
+  return (
+    <div className="map-card-quarter">
+      <p className="map-card-note">{quarter.note}</p>
+      <p className="map-card-note">Сравнение по текущему состоянию соседей.</p>
+      <FieldList
+        rows={[
+          { label: 'Соседей', value: quarter.neighbor_count.toLocaleString('ru-RU') },
+          { label: 'Площадь', value: quarter.area_ha == null ? 'не указано' : hectares(quarter.area_ha), hint: 'Площадь этой карточки.' },
+          { label: 'Медиана площади', value: quarter.area_median_ha == null ? 'не указано' : hectares(quarter.area_median_ha), hint: 'Середина площадей соседних участков.' },
+          { label: 'Удельный показатель', value: quarter.cost_index == null ? 'не указано' : rubPerMeter(quarter.cost_index), hint: 'Кадастровая стоимость на квадратный метр у этой карточки.' },
+          { label: 'Медиана показателя', value: quarter.cost_median == null ? 'не указано' : rubPerMeter(quarter.cost_median), hint: 'Середина удельных показателей соседних участков.' },
+          { label: 'Та же категория', value: ofNeighbors(quarter.same_category), hint: 'Сколько соседей в той же категории земель.' },
+          { label: 'То же использование', value: ofNeighbors(quarter.same_use), hint: 'Сколько соседей с тем же видом разрешённого использования.' },
+          { label: 'Оценка', value: quarter.score == null ? 'не указано' : points(quarter.score), hint: 'Балл этой карточки, тот же, что на вкладке «Оценка».' },
+          { label: 'Медиана оценки', value: quarter.score_median == null ? 'не указано' : points(quarter.score_median), hint: 'Середина баллов соседних участков.' },
+        ]}
+      />
+      <button type="button" className="map-card-chart-toggle" onClick={onToggle}>
+        {graphs ? 'Скрыть графики' : 'Отобразить графически'}
+      </button>
+      {graphs ? (
+        <div className="map-card-charts">
+          <AnalyticsChart title="Соседи по категориям" slices={categories} format={countLabel} initial="donut" kinds={quarterChartKinds} />
+          <AnalyticsChart title="Соседи по виду использования" slices={uses} format={countLabel} initial="horizontal" kinds={quarterChartKinds} />
+          {quarter.area_ha != null && quarter.area_median_ha != null ? (
+            <AnalyticsChart title="Площадь" slices={pairSlices(quarter.area_ha, quarter.area_median_ha)} format={hectares} initial="bar" kinds={quarterChartKinds} />
+          ) : null}
+          {quarter.cost_index != null && quarter.cost_median != null ? (
+            <AnalyticsChart title="Удельный показатель" slices={pairSlices(quarter.cost_index, quarter.cost_median)} format={rubPerMeter} initial="bar" kinds={quarterChartKinds} />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ParcelCardView({
+  card,
+  onClose,
+  onDragStart,
+  onShowCharts,
+}: {
+  card: CardState
+  onClose: () => void
+  onDragStart: (event: ReactPointerEvent) => void
+  onShowCharts: () => void
+}) {
   const parcelId = card.kind === 'parcel' ? card.parcel.id : 0
-  const [tab, setTab] = useState<'plot' | 'score'>('plot')
-  useEffect(() => {
+  const [tab, setTab] = useState<'plot' | 'score' | 'quarter'>('plot')
+  const [graphs, setGraphs] = useState(false)
+  const [quarter, setQuarter] = useState<ParcelQuarter | null>(null)
+  const [quarterError, setQuarterError] = useState('')
+  const [trackedId, setTrackedId] = useState(parcelId)
+  if (trackedId !== parcelId) {
+    setTrackedId(parcelId)
     setTab('plot')
-  }, [parcelId])
+    setGraphs(false)
+    setQuarter(null)
+    setQuarterError('')
+  }
+
+  useEffect(() => {
+    if (tab !== 'quarter' || parcelId === 0 || quarter || quarterError) return
+    let alive = true
+    parcelQuarter(parcelId)
+      .then((data) => {
+        if (alive) setQuarter(data)
+      })
+      .catch((err: unknown) => {
+        if (alive) setQuarterError(err instanceof Error ? err.message : 'Квартал не собрался')
+      })
+    return () => {
+      alive = false
+    }
+  }, [tab, parcelId, quarter, quarterError])
+
+  const toggleGraphs = () => {
+    if (!graphs) onShowCharts()
+    setGraphs((open) => !open)
+  }
 
   let body: ReactNode
   if (card.kind === 'idle') {
@@ -335,6 +496,8 @@ function ParcelCardView({ card, onClose }: { card: CardState; onClose: () => voi
     ) : (
       <p className="map-card-note">{score?.reason || 'Оценка не собралась.'}</p>
     )
+  } else if (tab === 'quarter') {
+    body = <QuarterBody quarter={quarter} error={quarterError} graphs={graphs} onToggle={toggleGraphs} />
   } else {
     const parcel = card.parcel
     body = (
@@ -360,24 +523,27 @@ function ParcelCardView({ card, onClose }: { card: CardState; onClose: () => voi
 
   return (
     <>
-      <div className="map-card-head">
+      <div className="map-card-head map-card-head--drag" onPointerDown={onDragStart}>
         {card.kind === 'parcel' ? (
           <div className="map-card-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={tab === 'plot'} className={tab === 'plot' ? 'active' : ''} onClick={() => setTab('plot')}>
+            <button type="button" role="tab" aria-selected={tab === 'plot'} className={tab === 'plot' ? 'active' : ''} onPointerDown={keepClick} onClick={() => setTab('plot')}>
               Участок
             </button>
-            <button type="button" role="tab" aria-selected={tab === 'score'} className={tab === 'score' ? 'active' : ''} onClick={() => setTab('score')}>
+            <button type="button" role="tab" aria-selected={tab === 'score'} className={tab === 'score' ? 'active' : ''} onPointerDown={keepClick} onClick={() => setTab('score')}>
               Оценка
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'quarter'} className={tab === 'quarter' ? 'active' : ''} onPointerDown={keepClick} onClick={() => setTab('quarter')}>
+              Квартал
             </button>
           </div>
         ) : (
           <h2>Участок</h2>
         )}
-        <button type="button" onClick={onClose}>
+        <button type="button" onPointerDown={keepClick} onClick={onClose}>
           Свернуть
         </button>
       </div>
-      {body}
+      <div className="map-card-body">{body}</div>
     </>
   )
 }
@@ -476,6 +642,10 @@ export default function MapPage() {
   const [walk, setWalk] = useState<WalkStatus | null>(null)
   const [walkError, setWalkError] = useState('')
   const [cardOpen, setCardOpen] = useState(false)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const [cardBox, setCardBox] = useState<FloatBox>({ x: 12, y: 12, w: 340, h: 480 })
+  const cardDrag = useRef<{ kind: 'move' | 'resize'; x: number; y: number; box: FloatBox } | null>(null)
+  const cardPlaced = useRef(false)
   const [latText, setLatText] = useState('')
   const [lngText, setLngText] = useState('')
   const [searchError, setSearchError] = useState('')
@@ -489,6 +659,65 @@ export default function MapPage() {
   const [polyFixed, setPolyFixed] = useState(false)
   const [reach] = useState<DrawReach>(readDrawReach)
   const [reloadToken, setReloadToken] = useState(0)
+
+  useEffect(() => {
+    const node = frameRef.current
+    if (!node) return
+    const fit = () => {
+      const rect = node.getBoundingClientRect()
+      setCardBox((current) => {
+        if (!cardPlaced.current) {
+          const height = Math.max(220, Math.min(640, rect.height - 24))
+          return clampCard({ x: 12, y: 12, w: 340, h: height }, rect.width, rect.height)
+        }
+        return clampCard(current, rect.width, rect.height)
+      })
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [full])
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const active = cardDrag.current
+      const node = frameRef.current
+      if (!active || !node) return
+      const rect = node.getBoundingClientRect()
+      const dx = event.clientX - active.x
+      const dy = event.clientY - active.y
+      if (active.kind === 'move') {
+        setCardBox(clampMove({ ...active.box, x: active.box.x + dx, y: active.box.y + dy }, rect.width, rect.height))
+        return
+      }
+      setCardBox(clampResize({ ...active.box, w: active.box.w + dx, h: active.box.h + dy }, rect.width, rect.height))
+    }
+    const stop = () => {
+      cardDrag.current = null
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+    }
+  }, [])
+
+  const beginCardDrag = (kind: 'move' | 'resize', event: ReactPointerEvent) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    cardPlaced.current = true
+    cardDrag.current = { kind, x: event.clientX, y: event.clientY, box: cardBox }
+  }
+
+  const growCardForCharts = () => {
+    const node = frameRef.current
+    if (!node) return
+    cardPlaced.current = true
+    const rect = node.getBoundingClientRect()
+    setCardBox((current) => growCard(current, rect.width, rect.height))
+  }
 
   useEffect(() => {
     if (!focusRequest || !verified) return
@@ -789,7 +1018,7 @@ export default function MapPage() {
         </header>
       )}
       <div className="map-layout">
-        <div className="map-frame">
+        <div className="map-frame" ref={frameRef}>
           <MapContainer
             center={savedView ? [savedView.lat, savedView.lng] : [69.38, 88.07]}
             zoom={savedView ? savedView.zoom : 11}
@@ -1071,8 +1300,9 @@ export default function MapPage() {
             </aside>
           ) : null}
           {verified && cardOpen ? (
-            <aside className="map-card map-card--float">
-              <ParcelCardView card={card} onClose={() => { setCardOpen(false); setGlow('') }} />
+            <aside className="map-card map-card--float" style={{ left: cardBox.x, top: cardBox.y, width: cardBox.w, height: cardBox.h }}>
+              <ParcelCardView card={card} onClose={() => { setCardOpen(false); setGlow('') }} onDragStart={(event) => beginCardDrag('move', event)} onShowCharts={growCardForCharts} />
+              <button type="button" className="map-card-resize" aria-label="Изменить размер" onPointerDown={(event) => beginCardDrag('resize', event)} />
             </aside>
           ) : null}
           <AssistantDock />

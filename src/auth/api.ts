@@ -179,6 +179,33 @@ export type ParcelScore = {
   median_ha: number
 }
 
+export type QuarterSlice = { name: string; count: number }
+
+export type ParcelQuarter = {
+  ready: boolean
+  reason?: string
+  basis?: string
+  note?: string
+  quarter?: string
+  neighbor_count: number
+  area_ha: number | null
+  area_median_ha: number | null
+  cost_index: number | null
+  cost_median: number | null
+  same_category: number
+  same_use: number
+  score: number | null
+  score_median: number | null
+  categories: QuarterSlice[] | null
+  uses: QuarterSlice[] | null
+}
+
+export async function parcelQuarter(id: number): Promise<ParcelQuarter> {
+  const response = await send(`/api/parcels/${id}/quarter`)
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as ParcelQuarter
+}
+
 export type AnalyticsCell = {
   district: string
   category: string

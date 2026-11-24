@@ -18,9 +18,9 @@ import {
 
 export type AnalyticsSlice = { name: string; value: number; color: string }
 
-type ChartKind = 'bar' | 'horizontal' | 'pie' | 'donut' | 'line' | 'area'
+export type ChartKind = 'bar' | 'horizontal' | 'pie' | 'donut' | 'line' | 'area'
 
-const kinds: { id: ChartKind; label: string }[] = [
+const allKinds: { id: ChartKind; label: string }[] = [
   { id: 'bar', label: 'Столбцы' },
   { id: 'horizontal', label: 'Горизонтальные столбцы' },
   { id: 'pie', label: 'Круг' },
@@ -66,13 +66,16 @@ export default function AnalyticsChart({
   slices,
   format,
   initial = 'bar',
+  kinds,
 }: {
   title: string
   slices: AnalyticsSlice[]
   format: (value: number) => string
   initial?: ChartKind
+  kinds?: ChartKind[]
 }) {
-  const [kind, setKind] = useState<ChartKind>(initial)
+  const options = kinds && kinds.length > 0 ? allKinds.filter((item) => kinds.includes(item.id)) : allKinds
+  const [kind, setKind] = useState<ChartKind>(options.some((item) => item.id === initial) ? initial : (options[0]?.id ?? 'bar'))
   const total = slices.reduce((sum, slice) => sum + slice.value, 0)
   const positive = slices.filter((slice) => slice.value > 0)
   const height = kind === 'horizontal' ? Math.max(240, slices.length * 36) : 260
@@ -185,7 +188,7 @@ export default function AnalyticsChart({
         <label>
           Вид
           <select value={kind} onChange={(event) => setKind(event.target.value as ChartKind)} aria-label={`Вид графика «${title}»`}>
-            {kinds.map((item) => (
+            {options.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.label}
               </option>
