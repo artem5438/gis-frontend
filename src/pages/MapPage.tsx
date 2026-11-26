@@ -430,11 +430,13 @@ function ParcelCardView({
   onClose,
   onDragStart,
   onShowCharts,
+  onQuarter,
 }: {
   card: CardState
   onClose: () => void
   onDragStart: (event: ReactPointerEvent) => void
   onShowCharts: () => void
+  onQuarter: (active: boolean, numbers: string[]) => void
 }) {
   const parcelId = card.kind === 'parcel' ? card.parcel.id : 0
   const [tab, setTab] = useState<'plot' | 'score' | 'quarter'>('plot')
@@ -442,6 +444,8 @@ function ParcelCardView({
   const [quarter, setQuarter] = useState<ParcelQuarter | null>(null)
   const [quarterError, setQuarterError] = useState('')
   const [trackedId, setTrackedId] = useState(parcelId)
+  const onQuarterRef = useRef(onQuarter)
+  onQuarterRef.current = onQuarter
   if (trackedId !== parcelId) {
     setTrackedId(parcelId)
     setTab('plot')
@@ -464,6 +468,15 @@ function ParcelCardView({
       alive = false
     }
   }, [tab, parcelId, quarter, quarterError])
+
+  useEffect(() => {
+    if (tab !== 'quarter') {
+      onQuarterRef.current(false, [])
+      return
+    }
+    onQuarterRef.current(true, quarter?.neighbor_numbers ?? [])
+    return () => onQuarterRef.current(false, [])
+  }, [tab, quarter])
 
   const toggleGraphs = () => {
     if (!graphs) onShowCharts()
@@ -606,12 +619,15 @@ function ParcelWindow({
   return null
 }
 
-function parcelStyle(feature: GeoJSON.Feature | undefined, glow: string): PathOptions {
+function parcelStyle(feature: GeoJSON.Feature | undefined, selected: string, neighbors: ReadonlySet<string>): PathOptions {
   const category = typeof feature?.properties?.land_category === 'string' ? feature.properties.land_category : ''
   const paint = categoryPaint(category)
   const number = typeof feature?.properties?.cadastral_number === 'string' ? feature.properties.cadastral_number : ''
-  if (glow && number === glow) {
-    return { color: '#141414', weight: 4, fillColor: paint.fill, fillOpacity: 0.92 }
+  if (selected && number === selected) {
+    return { color: '#1d4e9e', weight: 1.5, fillColor: '#2f6fed', fillOpacity: 0.82 }
+  }
+  if (number && neighbors.has(number)) {
+    return { color: '#3d6cb5', weight: 1.5, fillColor: '#9ec2f8', fillOpacity: 0.72 }
   }
   return { color: paint.stroke, weight: 2, fillColor: paint.fill, fillOpacity: 0.55 }
 }
@@ -620,6 +636,8 @@ export default function MapPage() {
   const auth = useAuth()
   const focusRequest = useParcelFocus()
   const [glow, setGlow] = useState('')
+  const [quarterOn, setQuarterOn] = useState(false)
+  const [neighborGlow, setNeighborGlow] = useState<string[]>([])
   const [savedView] = useState(readMapView)
   const verified = auth.account?.verification_status === 'verified'
   const fromDatabase = auth.account?.from_database !== false
@@ -987,6 +1005,8 @@ export default function MapPage() {
     measureText = `Площадь: ${formatArea(polyArea)}. Периметр: ${formatMeters(polyPerimeter)}.`
   }
 
+  const selectedNumber = quarterOn && card.kind === 'parcel' ? card.parcel.cadastral_number : glow
+  const neighborSet = new Set(neighborGlow)
   const visibleLayer =
     layer == null
       ? null
@@ -1054,7 +1074,7 @@ export default function MapPage() {
               }}
             />
             {visibleLayer && visibleLayer.features.length > 0 ? (
-              <GeoJSON key={`${layerKey}:${hiddenCategories.join('|')}:${glow}`} data={visibleLayer} style={(feature) => parcelStyle(feature, glow)} />
+              <GeoJSON key={`${layerKey}:${hiddenCategories.join('|')}:${selectedNumber}:${neighborGlow.join(',')}`} data={visibleLayer} style={(feature) => parcelStyle(feature, selectedNumber, neighborSet)} />
             ) : null}
             {districts.map((district) => (
               <CircleMarker
@@ -1301,7 +1321,21 @@ export default function MapPage() {
           ) : null}
           {verified && cardOpen ? (
             <aside className="map-card map-card--float" style={{ left: cardBox.x, top: cardBox.y, width: cardBox.w, height: cardBox.h }}>
-              <ParcelCardView card={card} onClose={() => { setCardOpen(false); setGlow('') }} onDragStart={(event) => beginCardDrag('move', event)} onShowCharts={growCardForCharts} />
+              <ParcelCardView
+                card={card}
+                onClose={() => {
+                  setCardOpen(false)
+                  setGlow('')
+                  setQuarterOn(false)
+                  setNeighborGlow([])
+                }}
+                onDragStart={(event) => beginCardDrag('move', event)}
+                onShowCharts={growCardForCharts}
+                onQuarter={(active, numbers) => {
+                  setQuarterOn(active)
+                  setNeighborGlow(active ? numbers : [])
+                }}
+              />
               <button type="button" className="map-card-resize" aria-label="Изменить размер" onPointerDown={(event) => beginCardDrag('resize', event)} />
             </aside>
           ) : null}

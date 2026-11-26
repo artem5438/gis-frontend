@@ -1,13 +1,14 @@
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { askAssistant } from '../auth/api'
+import { askAssistant, type AssistantSource } from '../auth/api'
+import DocumentPreview from './DocumentPreview'
 import { useAuth } from '../auth/AuthContext'
 
 type ChatLine = {
   id: string
   role: 'user' | 'assistant'
   text: string
-  sources?: string[]
+  sources?: AssistantSource[]
   plot?: { number: string; lat: number; lng: number } | null
 }
 
@@ -72,6 +73,7 @@ export function AssistantDialog({ tall, onDragStart, onClose, onReveal }: { tall
   const chat = useChat()
   const navigate = useNavigate()
   const [draft, setDraft] = useState('')
+  const [preview, setPreview] = useState<AssistantSource | null>(null)
   const threadRef = useRef<HTMLDivElement>(null)
   const welcome = greeting(auth.account?.full_name)
   const thread = [{ id: 'welcome', role: 'assistant' as const, text: welcome }, ...chat.lines]
@@ -113,7 +115,18 @@ export function AssistantDialog({ tall, onDragStart, onClose, onReveal }: { tall
           ) : (
             <div key={line.id} className="assistant-turn">
               <p className="assistant-bubble">{line.text}</p>
-              {line.sources && line.sources.length > 0 ? <p className="assistant-source">{line.sources.join(' · ')}</p> : null}
+              {line.sources && line.sources.length > 0 ? (
+                <p className="assistant-source">
+                  {line.sources.map((source, index) => (
+                    <span key={`${source.id}-${index}`}>
+                      {index > 0 ? ' · ' : null}
+                      <button type="button" className="assistant-source-link" onClick={() => setPreview(source)}>
+                        {source.title}
+                      </button>
+                    </span>
+                  ))}
+                </p>
+              ) : null}
               {line.plot ? (
                 <button
                   type="button"
@@ -144,6 +157,7 @@ export function AssistantDialog({ tall, onDragStart, onClose, onReveal }: { tall
           ↑
         </button>
       </form>
+      {preview ? <DocumentPreview target={preview} onClose={() => setPreview(null)} /> : null}
     </section>
   )
 }

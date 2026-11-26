@@ -188,6 +188,7 @@ export type ParcelQuarter = {
   note?: string
   quarter?: string
   neighbor_count: number
+  neighbor_numbers: string[]
   area_ha: number | null
   area_median_ha: number | null
   cost_index: number | null
@@ -270,9 +271,16 @@ export async function decideApplication(id: number, decision: 'approved' | 'reje
 export type AssistantDocument = {
   id: number
   title: string
+  kind: string
   created_at: string
   author: string | null
   can_edit: boolean
+}
+
+export type AssistantSource = {
+  id: number
+  title: string
+  kind: string
 }
 
 export async function assistantDocuments(): Promise<AssistantDocument[]> {
@@ -305,15 +313,37 @@ export async function deleteAssistantDocument(id: number): Promise<void> {
   if (!response.ok) throw new Error(await readError(response))
 }
 
-export async function askAssistant(message: string): Promise<{ answer: string; sources: string[]; plot: { number: string; lat: number; lng: number } | null }> {
+export async function assistantDocumentFile(id: number, plain: boolean): Promise<{ extension: string; buffer: ArrayBuffer }> {
+  const response = await fetch(`/api/assistant/documents/${id}/file${plain ? '?plain=1' : ''}`, { credentials: 'include' })
+  if (!response.ok) throw new Error(await readError(response))
+  const extension = (response.headers.get('X-Document-Extension') || '').toLowerCase()
+  return { extension, buffer: await response.arrayBuffer() }
+}
+
+function readSources(value: unknown): AssistantSource[] {
+  if (!Array.isArray(value)) return []
+  const sources: AssistantSource[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as { id?: unknown; title?: unknown; kind?: unknown }
+    const id = typeof row.id === 'number' ? row.id : 0
+    const title = typeof row.title === 'string' ? row.title.trim() : ''
+    const kind = typeof row.kind === 'string' ? row.kind : ''
+    if (id === 0 || title === '') continue
+    sources.push({ id, title, kind })
+  }
+  return sources
+}
+
+export async function askAssistant(message: string): Promise<{ answer: string; sources: AssistantSource[]; plot: { number: string; lat: number; lng: number } | null }> {
   const response = await send('/api/assistant/ask', {
     method: 'POST',
     body: JSON.stringify({ message }),
   })
   if (!response.ok) throw new Error(await readError(response))
-  const body = (await response.json()) as { answer?: string; sources?: string[]; map?: { number?: string; lat?: number; lng?: number } }
+  const body = (await response.json()) as { answer?: string; sources?: unknown; map?: { number?: string; lat?: number; lng?: number } }
   const answer = body.answer?.trim() || 'Извините, у меня нет этой информации.'
-  const sources = answer === 'Извините, у меня нет этой информации.' ? [] : (body.sources ?? []).filter((item) => item.trim() !== '')
+  const sources = answer === 'Извините, у меня нет этой информации.' ? [] : readSources(body.sources)
   const plot = body.map?.number && typeof body.map.lat === 'number' && typeof body.map.lng === 'number'
     ? { number: body.map.number, lat: body.map.lat, lng: body.map.lng }
     : null

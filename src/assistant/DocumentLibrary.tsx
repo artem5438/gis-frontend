@@ -6,7 +6,9 @@ import {
   renameAssistantDocument,
   uploadAssistantDocument,
   type AssistantDocument,
+  type AssistantSource,
 } from '../auth/api'
+import DocumentPreview from './DocumentPreview'
 
 const accept = '.txt,.md,.docx,.pdf,.xlsx,.csv'
 const maxBytes = 50 * 1024 * 1024
@@ -29,6 +31,7 @@ export default function DocumentLibrary() {
   const [editing, setEditing] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [confirming, setConfirming] = useState<number | null>(null)
+  const [preview, setPreview] = useState<AssistantSource | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const closing = useRef(false)
   const timer = useRef(0)
@@ -210,8 +213,15 @@ export default function DocumentLibrary() {
                         {when(document.created_at) ? ` · ${when(document.created_at)}` : ''}
                       </p>
                     </div>
-                    {document.can_edit ? (
-                      <div className="profile-doc-actions">
+                    <div className="profile-doc-actions">
+                      <button
+                        type="button"
+                        onClick={() => setPreview({ id: document.id, title: document.title, kind: document.kind })}
+                      >
+                        Просмотр
+                      </button>
+                      {document.can_edit ? (
+                        <>
                         {editing === document.id ? (
                           <>
                             <button type="button" disabled={busy !== null} onClick={() => void rename(document.id)}>
@@ -255,8 +265,9 @@ export default function DocumentLibrary() {
                             </button>
                           </>
                         )}
-                      </div>
-                    ) : null}
+                        </>
+                      ) : null}
+                    </div>
                   </article>
                 ))
               )}
@@ -264,6 +275,7 @@ export default function DocumentLibrary() {
           </section>
         </div>
       ) : null}
+      {preview ? <DocumentPreview target={preview} onClose={() => setPreview(null)} /> : null}
     </div>
   )
 }
