@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import type { Map as LeafletMap } from 'leaflet'
 import { Circle, CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
@@ -438,6 +439,7 @@ function ParcelCardView({
   onShowCharts: () => void
   onQuarter: (active: boolean, numbers: string[]) => void
 }) {
+  const navigate = useNavigate()
   const parcelId = card.kind === 'parcel' ? card.parcel.id : 0
   const [tab, setTab] = useState<'plot' | 'score' | 'quarter'>('plot')
   const [graphs, setGraphs] = useState(false)
@@ -547,6 +549,9 @@ function ParcelCardView({
             </button>
             <button type="button" role="tab" aria-selected={tab === 'quarter'} className={tab === 'quarter' ? 'active' : ''} onPointerDown={keepClick} onClick={() => setTab('quarter')}>
               Квартал
+            </button>
+            <button type="button" onPointerDown={keepClick} onClick={() => navigate(`/report?parcel=${parcelId}`)}>
+              Отчёт
             </button>
           </div>
         ) : (

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type FormEvent,
 import { useNavigate } from 'react-router-dom'
 import { askAssistant, type AssistantSource } from '../auth/api'
 import DocumentPreview from './DocumentPreview'
+import ReportLaunch from '../reports/ReportLaunch'
 import { useAuth } from '../auth/AuthContext'
 
 type ChatLine = {
@@ -128,17 +129,20 @@ export function AssistantDialog({ tall, onDragStart, onClose, onReveal }: { tall
                 </p>
               ) : null}
               {line.plot ? (
-                <button
-                  type="button"
-                  className="assistant-map"
-                  onClick={() => {
-                    chat.showOnMap(line.plot!)
-                    onReveal?.()
-                    navigate('/map')
-                  }}
-                >
-                  Показать на карте
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="assistant-map"
+                    onClick={() => {
+                      chat.showOnMap(line.plot!)
+                      onReveal?.()
+                      navigate('/map')
+                    }}
+                  >
+                    Показать на карте
+                  </button>
+                  <ReportLaunch label="Сформировать отчёт" number={line.plot.number} />
+                </>
               ) : null}
             </div>
           ),

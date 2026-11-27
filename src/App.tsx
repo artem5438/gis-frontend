@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import MapPage from './pages/MapPage'
 import RegisterPage from './pages/RegisterPage'
+import ReportPage from './pages/ReportPage'
 import ReviewPage from './pages/ReviewPage'
 import { useAuth } from './auth/AuthContext'
 
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/report" element={<ReportPage />} />
         <Route path="/review" element={<ReviewPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -350,6 +350,70 @@ export async function askAssistant(message: string): Promise<{ answer: string; s
   return { answer, sources, plot }
 }
 
+export type ReportLine = { label: string; value: string; hint?: string }
+export type ReportSlice = { name: string; value: number; color: string }
+export type ReportChart = { title: string; kind?: string; slices: ReportSlice[] }
+export type ReportSection = { title: string; note?: string; lines?: ReportLine[] | null }
+export type ReportDocument = {
+  title: string
+  formed_on: string
+  author: string
+  number: string
+  passport: ReportLine[]
+  score?: ReportSection | null
+  quarter?: ReportSection | null
+  charts?: ReportChart[] | null
+}
+export type SavedReport = {
+  id: number
+  format: 'pdf' | 'docx'
+  number: string
+  score: boolean
+  quarter: boolean
+  charts: boolean
+  created_at: string
+  body?: ReportDocument
+}
+
+export async function reportDraft(target: { parcel?: string; number?: string }): Promise<{ parcel_id: number; body: ReportDocument }> {
+  const params = new URLSearchParams()
+  if (target.parcel) params.set('parcel', target.parcel)
+  if (target.number) params.set('number', target.number)
+  const response = await send(`/api/reports/draft?${params}`)
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as { parcel_id: number; body: ReportDocument }
+}
+
+export async function saveReport(body: { id?: number; parcel_id: number; format: 'pdf' | 'docx'; score: boolean; quarter: boolean; charts: boolean; chart_kinds: Record<string, string> }): Promise<SavedReport> {
+  const response = await send('/api/reports', { method: 'POST', body: JSON.stringify(body) })
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as SavedReport
+}
+
+export async function myReports(): Promise<SavedReport[]> {
+  const response = await send('/api/reports')
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as SavedReport[]
+}
+
+export async function openReport(id: number): Promise<SavedReport> {
+  const response = await send(`/api/reports/${id}`)
+  if (!response.ok) throw new Error(await readError(response))
+  return (await response.json()) as SavedReport
+}
+
+export async function downloadReport(id: number, filename: string): Promise<void> {
+  const response = await fetch(`/api/reports/${id}/file`, { credentials: 'include' })
+  if (!response.ok) throw new Error(await readError(response))
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export function statusLabel(status: string): string {
   if (status === 'visitor') return 'Посетитель'
   if (status === 'verified') return 'Проверен'
